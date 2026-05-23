@@ -30,18 +30,26 @@ function AdminDashboard() {
                 const groupsSnap = await getDocs(groupsQuery);
                 const totalGroups = groupsSnap.size;
 
+                // We need to fetch the member count for each group to display it accurately
                 let totalViewsCount = 0;
-                const groupData = groupsSnap.docs.map(groupDoc => {
+                const groupData = await Promise.all(groupsSnap.docs.map(async (groupDoc) => {
+                    const progressSnap = await getDocs(collection(db, "groups", groupDoc.id, "progress"));
+
+                    // Count unique users who have made progress in this group
+                    const uniqueUsers = new Set();
+                    progressSnap.docs.forEach(doc => {
+                        uniqueUsers.add(doc.data().userId);
+                    });
+
                     const data = groupDoc.data();
                     totalViewsCount += (data.totalViews || 0);
 
                     return {
                         id: groupDoc.id,
                         ...data,
-                        // No extra queries! Just read from the array directly.
-                        activeMembers: data.members?.length || 0,
+                        activeMembers: uniqueUsers.size,
                     };
-                });
+                }));
 
                 setStats({ totalUsers, totalGroups, totalViews: totalViewsCount });
                 setGroups(groupData);
