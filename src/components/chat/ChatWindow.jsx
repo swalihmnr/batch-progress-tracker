@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, LogOut, AlignLeft, Smile, PlusCircle, Settings, Hash, User, Users, MessageSquare, UserPlus, CheckCircle, Trophy } from "lucide-react";
-import { subscribeToMessages, sendMessage } from "../../firebase/chatService";
+import { Send, LogOut, AlignLeft, Smile, PlusCircle, Settings, Hash, User, Users, MessageSquare, UserPlus, CheckCircle, Trophy, ChevronDown, Edit2, Trash2, Info } from "lucide-react";
+import { subscribeToMessages, sendMessage, editMessage, deleteMessage, markRoomAsRead } from "../../firebase/chatService";
 import { db } from "../../firebase/firebaseConfig";
 import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import EmojiPicker from 'emoji-picker-react';
@@ -16,6 +16,12 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showPolledUsersModal, setShowPolledUsersModal] = useState(null);
+  
+  // Message Options State
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [editInputText, setEditInputText] = useState("");
+  const [showSeenByModal, setShowSeenByModal] = useState(null);
 
   const messagesEndRef = useRef(null);
 
@@ -62,7 +68,19 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
   useEffect(() => {
     // Jump to the bottom instantly to avoid glitchy scrolling on load
     messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
-  }, [messages]);
+    
+    // Mark room as read when messages arrive or room is opened
+    if (activeRoom?.id && userId) {
+      markRoomAsRead(activeRoom.id, userId);
+    }
+  }, [messages, activeRoom?.id, userId]);
+
+  // Click away listener for message menu
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    if (openMenuId) document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [openMenuId]);
 
   const handleSend = async (e) => {
     if (e?.preventDefault) e.preventDefault();
@@ -106,6 +124,31 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
     } catch (err) {
       console.error("Error voting on poll:", err);
       toast.error("Failed to update status.");
+    }
+  };
+
+  const handleEditSubmit = async (e, msgId) => {
+    e.preventDefault();
+    if (!editInputText.trim()) return;
+    try {
+      await editMessage(activeRoom.id, msgId, editInputText);
+      setEditingMessage(null);
+      toast.success("Message updated");
+    } catch (err) {
+      console.error("Failed to edit message:", err);
+      toast.error("Failed to update message");
+    }
+  };
+
+  const handleDeleteMessage = async (msgId) => {
+    if (window.confirm("Delete this message?")) {
+      try {
+        await deleteMessage(activeRoom.id, msgId);
+        toast.success("Message deleted");
+      } catch (err) {
+        console.error("Failed to delete message:", err);
+        toast.error("Failed to delete message");
+      }
     }
   };
 
@@ -424,8 +467,50 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
                             </span>
                           </div>
                         </div>
+                      ) : msg.isDeleted ? (
+                        <span className="italic text-white/70 dark:text-slate-500 flex items-center gap-1.5"><Trash2 className="w-3.5 h-3.5" /> {msg.text}</span>
+                      ) : editingMessage === msg.id ? (
+                        <form onSubmit={(e) => handleEditSubmit(e, msg.id)} className="flex items-center gap-2 min-w-[200px]">
+                           <input 
+                             type="text" 
+                             value={editInputText} 
+                             onChange={(e) => setEditInputText(e.target.value)} 
+                             className="bg-black/20 border-b border-white/40 focus:border-white outline-none px-1 py-0.5 text-sm w-full text-white" 
+                             autoFocus
+                           />
+                           <button type="button" onClick={() => setEditingMessage(null)} className="p-1 hover:bg-black/20 rounded text-white/80">✕</button>
+                           <button type="submit" className="p-1 hover:bg-black/20 rounded text-white"><Check className="w-4 h-4" /></button>
+                        </form>
                       ) : (
-                        msg.text
+                        <div className="flex flex-col group/msg relative">
+                          <span className="pr-4">{msg.text}</span>
+                          {msg.isEdited && <span className="text-[10px] opacity-70 mt-0.5">(edited)</span>}
+                          
+                          {/* Dropdown Menu Arrow */}
+                          {isMe && !msg.isDeleted && (
+                            <button
+                               onClick={(e) => { e.stopPropagation(); setOpenMenuId(msg.id === openMenuId ? null : msg.id); }}
+                               className="absolute -right-2 -top-2 p-1 bg-white/20 hover:bg-white/40 text-white rounded-full opacity-0 group-hover/msg:opacity-100 transition-opacity shadow-sm"
+                            >
+                               <ChevronDown className="w-3 h-3" />
+                            </button>
+                          )}
+                          
+                          {/* Dropdown Menu */}
+                          {openMenuId === msg.id && (
+                             <div className="absolute right-0 top-6 w-32 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 text-slate-700 dark:text-slate-200 text-sm">
+                                <button onClick={() => { setEditingMessage(msg.id); setEditInputText(msg.text); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 transition-colors">
+                                  <Edit2 className="w-3.5 h-3.5" /> Edit
+                                </button>
+                                <button onClick={() => { setShowSeenByModal(msg); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 transition-colors">
+                                  <Info className="w-3.5 h-3.5" /> Seen By
+                                </button>
+                                <button onClick={() => { handleDeleteMessage(msg.id); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 text-rose-600 dark:text-rose-400 transition-colors">
+                                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                                </button>
+                             </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -540,6 +625,53 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
                   No one has completed this yet!
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Seen By Modal */}
+      {showSeenByModal && (
+        <div className="absolute inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col scale-100 transition-transform">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800/80">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white leading-none">Message Info</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Read by</p>
+              </div>
+              <button 
+                onClick={() => setShowSeenByModal(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors bg-slate-100 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 p-1.5 rounded-full"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto max-h-[60vh] p-4 flex flex-col gap-3">
+              {(() => {
+                const readReceipts = activeRoom.readReceipts || {};
+                const msgTime = showSeenByModal.timestamp?.toMillis ? showSeenByModal.timestamp.toMillis() : Date.now();
+                const readers = (activeRoom.members || []).filter(memberId => {
+                   if (memberId === userId) return false; // don't show self
+                   const readTime = readReceipts[memberId]?.toMillis ? readReceipts[memberId].toMillis() : 0;
+                   return readTime >= msgTime;
+                }).map(memberId => peerProfiles[memberId]);
+
+                if (readers.length === 0) {
+                  return <div className="py-8 text-center text-sm text-slate-500">No one has read this yet!</div>;
+                }
+
+                return readers.map((peer, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0 shadow-sm">
+                      {peer?.photoURL ? <img src={peer.photoURL} alt={peer.fullName || "User"} className="w-full h-full object-cover" /> : <span className="text-sm font-bold text-slate-500 w-full h-full flex items-center justify-center">{peer?.fullName?.charAt(0)?.toUpperCase() || peer?.nickName?.charAt(0)?.toUpperCase() || "U"}</span>}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{peer?.fullName || peer?.nickName || "Unknown User"}</span>
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         </div>

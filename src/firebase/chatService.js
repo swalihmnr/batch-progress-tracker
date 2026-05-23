@@ -259,6 +259,47 @@ export const sendMessage = async (roomId, senderId, senderName, senderPhoto, tex
 };
 
 /**
+ * Edit a specific message
+ */
+export const editMessage = async (roomId, messageId, newText) => {
+  if (!roomId || !messageId || !newText.trim()) return;
+  const messageRef = doc(db, "chatRooms", roomId, "messages", messageId);
+  await updateDoc(messageRef, {
+    text: newText.trim(),
+    isEdited: true
+  });
+};
+
+/**
+ * Delete a specific message (soft delete)
+ */
+export const deleteMessage = async (roomId, messageId) => {
+  if (!roomId || !messageId) return;
+  const messageRef = doc(db, "chatRooms", roomId, "messages", messageId);
+  await updateDoc(messageRef, {
+    text: "This message was deleted",
+    isDeleted: true,
+    imageUrl: null
+  });
+};
+
+/**
+ * Mark room as read for a user (for seen by feature)
+ */
+export const markRoomAsRead = async (roomId, userId) => {
+  if (!roomId || !userId) return;
+  try {
+    const roomRef = doc(db, "chatRooms", roomId);
+    // Use dot notation to update a specific key inside the readReceipts map
+    await updateDoc(roomRef, {
+      [`readReceipts.${userId}`]: serverTimestamp()
+    });
+  } catch (err) {
+    console.error("Error marking room as read:", err);
+  }
+};
+
+/**
  * Subscribe to messages for a specific room
  */
 export const subscribeToMessages = (roomId, callback) => {
