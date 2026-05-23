@@ -25,11 +25,17 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
 
   const messagesEndRef = useRef(null);
 
+  const isGlobalOrQad = ['global', '1qad'].includes(activeRoom?.type);
+  const isMember = activeRoom?.members?.includes(userId);
+
   useEffect(() => {
+    // Clear messages instantly when switching rooms to prevent showing previous chat
+    setMessages([]);
+    
     if (!activeRoom?.id) return;
     
     // We only subscribe if it's Global, 1QAD, or User is a member
-    if (!['global', '1qad'].includes(activeRoom.type) && !activeRoom.members?.includes(userId)) {
+    if (!isGlobalOrQad && !isMember) {
       return; 
     }
 
@@ -37,7 +43,7 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
       setMessages(msgs);
     });
     return () => unsubscribe();
-  }, [activeRoom?.id, activeRoom?.type, activeRoom?.members, userId]);
+  }, [activeRoom?.id, isGlobalOrQad, isMember]);
 
   useEffect(() => {
     // Self-healing: If we see a message with a senderPhoto, but the peerProfile doesn't have it,
