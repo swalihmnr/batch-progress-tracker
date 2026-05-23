@@ -74,6 +74,8 @@ function NotificationDropdown() {
             navigate(`/dashboard/chat?room=${notification.roomId}`);
         } else if (notification.link) {
             navigate(notification.link);
+        } else if (notification.type === 'announcement') {
+            navigate(`/dashboard/chat?room=global`);
         }
     };
 

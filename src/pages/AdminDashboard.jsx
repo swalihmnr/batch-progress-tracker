@@ -5,8 +5,10 @@ import { ShieldCheck, Users, BookOpen, ChevronRight, Activity, X, Loader2, Megap
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { broadcastAnnouncement } from "../firebase/adminService";
+import { useAuth } from "../context/AuthContext";
 
 function AdminDashboard() {
+    const { user, userProfile } = useAuth();
     const [stats, setStats] = useState({ totalUsers: 0, totalGroups: 0, totalViews: 0 });
     const [groups, setGroups] = useState([]);
     const [usersList, setUsersList] = useState([]);
@@ -17,7 +19,7 @@ function AdminDashboard() {
     // Broadcast State
     const [announceTitle, setAnnounceTitle] = useState("");
     const [announceMessage, setAnnounceMessage] = useState("");
-    const [announceLink, setAnnounceLink] = useState("/dashboard/chat?room=1qad");
+    const [announceLink, setAnnounceLink] = useState("");
     const [isBroadcasting, setIsBroadcasting] = useState(false);
     
     // Server-side lazy loading state
@@ -134,7 +136,12 @@ function AdminDashboard() {
             const count = await broadcastAnnouncement(
                 announceTitle,
                 announceMessage,
-                announceLink
+                announceLink,
+                {
+                    uid: user.uid,
+                    displayName: userProfile?.name || user.displayName || "Admin",
+                    photoURL: userProfile?.photoURL || user.photoURL || null
+                }
             );
             toast.success(`Announcement broadcasted to ${count} users!`);
             setAnnounceTitle("");

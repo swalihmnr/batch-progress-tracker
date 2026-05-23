@@ -1,11 +1,11 @@
-import { collection, getDocs, writeBatch, doc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, writeBatch, doc, serverTimestamp, addDoc } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 
 /**
  * Broadcasts a custom notification to every user in the database.
  * Uses batch writes to handle potentially large numbers of users efficiently.
  */
-export const broadcastAnnouncement = async (title, message, link) => {
+export const broadcastAnnouncement = async (title, message, link, sender) => {
     try {
         const usersSnap = await getDocs(collection(db, "users"));
         
@@ -39,6 +39,18 @@ export const broadcastAnnouncement = async (title, message, link) => {
         // Commit any remaining operations in the last batch
         if (count > 0) {
             await batch.commit();
+        }
+
+        // Post to global chat room
+        if (sender && message) {
+            const globalMsgRef = collection(db, "chatRooms", "global", "messages");
+            await addDoc(globalMsgRef, {
+                text: title ? `📢 **${title}**\n\n${message}` : `📢 ${message}`,
+                senderId: sender.uid,
+                senderName: sender.displayName || "Admin",
+                senderPhoto: sender.photoURL || null,
+                timestamp: serverTimestamp()
+            });
         }
 
         return totalSent;
