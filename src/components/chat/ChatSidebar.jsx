@@ -46,29 +46,29 @@ export default function ChatSidebar({
         const peerId = room.members?.find(id => id !== userId);
         const peer = peerProfiles[peerId];
         if (peer?.photoURL) {
-            return <img src={peer.photoURL} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />;
+            return <img src={peer.photoURL} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />;
         }
         const peerName = peer?.fullName || peer?.nickName || peer?.displayName || "User";
         return (
             <img 
               src={`https://ui-avatars.com/api/?name=${encodeURIComponent(peerName)}&background=6366f1&color=fff&size=64`} 
               alt="" 
-              className="w-5 h-5 rounded-full object-cover shrink-0" 
+              className="w-8 h-8 rounded-full object-cover shrink-0" 
             />
         );
     }
     if (room.iconEmoji) {
-        return <div className="text-[14px] flex items-center justify-center w-5 h-5 bg-slate-100 dark:bg-slate-800 rounded-md shrink-0 leading-none">{room.iconEmoji}</div>;
+        return <div className="text-[18px] flex items-center justify-center w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-md shrink-0 leading-none">{room.iconEmoji}</div>;
     }
     if (room.iconUrl) {
-        return <img src={room.iconUrl} alt="" className="w-5 h-5 rounded-md object-cover shrink-0" />;
+        return <img src={room.iconUrl} alt="" className="w-8 h-8 rounded-md object-cover shrink-0" />;
     }
     const groupName = room.name || "Group";
     return (
         <img 
           src={`https://ui-avatars.com/api/?name=${encodeURIComponent(groupName)}&background=e2e8f0&color=475569&size=64`} 
           alt="" 
-          className="w-5 h-5 rounded-md object-cover shrink-0 dark:opacity-80" 
+          className="w-8 h-8 rounded-md object-cover shrink-0 dark:opacity-80" 
         />
     );
   };
@@ -111,7 +111,9 @@ export default function ChatSidebar({
                 onClick={() => onSelectRoom(globalRoom)}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <Globe className="w-4 h-4 text-[#408A71] shrink-0" />
+                  <div className="w-8 h-8 rounded-full bg-[#408A71]/10 flex items-center justify-center shrink-0">
+                    <Globe className="w-4 h-4 text-[#408A71]" />
+                  </div>
                   <span className="truncate">{globalRoom.name || "Global Chat"}</span>
                 </div>
                 

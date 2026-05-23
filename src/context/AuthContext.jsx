@@ -20,7 +20,21 @@ export function AuthProvider({ children }) {
                 const userDocRef = doc(db, "users", currentUser.uid);
                 unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
                     if (docSnap.exists()) {
-                        setUserProfile(docSnap.data());
+                        const data = docSnap.data();
+                        setUserProfile(data);
+                        
+                        // Auto-sync Google Auth photo if missing in Firestore
+                        if (currentUser.photoURL && !data.photoURL) {
+                            import("firebase/firestore").then(({ updateDoc }) => {
+                                updateDoc(userDocRef, { photoURL: currentUser.photoURL }).catch(console.error);
+                            });
+                        }
+                        // Auto-sync name if missing
+                        if (currentUser.displayName && !data.fullName) {
+                            import("firebase/firestore").then(({ updateDoc }) => {
+                                updateDoc(userDocRef, { fullName: currentUser.displayName }).catch(console.error);
+                            });
+                        }
                     } else {
                         setUserProfile(null);
                     }
