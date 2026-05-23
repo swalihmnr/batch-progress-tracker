@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebase/firebaseConfig";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { ShieldCheck, Users, BookOpen, ChevronRight, Activity, X, ChevronLeft } from "lucide-react";
+import { collection, getDocs, query, orderBy, getCountFromServer, limit, startAfter } from "firebase/firestore";
+import { ShieldCheck, Users, BookOpen, ChevronRight, Activity, X, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 function AdminDashboard() {
@@ -11,50 +11,40 @@ function AdminDashboard() {
     const [loading, setLoading] = useState(true);
 
     const [showUsersModal, setShowUsersModal] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
-    const usersPerPage = 10;
+    
+    // Server-side lazy loading state
+    const [lastVisible, setLastVisible] = useState(null);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+    const [hasMoreUsers, setHasMoreUsers] = useState(true);
 
     useEffect(() => {
         const fetchAdminData = async () => {
             setLoading(true);
             try {
-                // Fetch Users
-                const usersSnap = await getDocs(collection(db, "users"));
-                const totalUsers = usersSnap.size;
-                const usersData = usersSnap.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
+                // Instantly fetch total users count without downloading the data
+                const usersCountSnap = await getCountFromServer(collection(db, "users"));
+                const totalUsers = usersCountSnap.data().count;
 
                 // Fetch Groups
                 const groupsQuery = query(collection(db, "groups"), orderBy("createdAt", "desc"));
                 const groupsSnap = await getDocs(groupsQuery);
                 const totalGroups = groupsSnap.size;
 
-                // We need to fetch the member count for each group to display it
                 let totalViewsCount = 0;
-                const groupData = await Promise.all(groupsSnap.docs.map(async (groupDoc) => {
-                    const progressSnap = await getDocs(collection(db, "groups", groupDoc.id, "progress"));
-
-                    // Count unique users who have made progress in this group
-                    const uniqueUsers = new Set();
-                    progressSnap.docs.forEach(doc => {
-                        uniqueUsers.add(doc.data().userId);
-                    });
-
+                const groupData = groupsSnap.docs.map(groupDoc => {
                     const data = groupDoc.data();
                     totalViewsCount += (data.totalViews || 0);
 
                     return {
                         id: groupDoc.id,
                         ...data,
-                        activeMembers: uniqueUsers.size,
+                        // No extra queries! Just read from the array directly.
+                        activeMembers: data.members?.length || 0,
                     };
-                }));
+                });
 
                 setStats({ totalUsers, totalGroups, totalViews: totalViewsCount });
                 setGroups(groupData);
-                setUsersList(usersData);
 
             } catch (error) {
                 console.error("Error fetching admin data:", error);
@@ -74,17 +64,46 @@ function AdminDashboard() {
         );
     }
 
-    const indexOfLastUser = currentPage * usersPerPage;
-    const indexOfFirstUser = indexOfLastUser - usersPerPage;
-    const currentUsers = usersList.slice(indexOfFirstUser, indexOfLastUser);
-    const totalPages = Math.ceil(usersList.length / usersPerPage);
-
-    const handleNextPage = () => {
-        if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+    const loadUsers = async (isNext = false) => {
+        if (loadingUsers || (!hasMoreUsers && isNext)) return;
+        setLoadingUsers(true);
+        try {
+            let usersQuery;
+            if (isNext && lastVisible) {
+                usersQuery = query(collection(db, "users"), orderBy("createdAt", "desc"), startAfter(lastVisible), limit(15));
+            } else {
+                usersQuery = query(collection(db, "users"), orderBy("createdAt", "desc"), limit(15));
+            }
+            
+            const snap = await getDocs(usersQuery);
+            if (snap.empty) {
+                setHasMoreUsers(false);
+            } else {
+                setLastVisible(snap.docs[snap.docs.length - 1]);
+                const newUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                if (isNext) {
+                    setUsersList(prev => [...prev, ...newUsers]);
+                } else {
+                    setUsersList(newUsers);
+                }
+                
+                if (snap.docs.length < 15) {
+                    setHasMoreUsers(false);
+                }
+            }
+        } catch (err) {
+            console.error("Error loading users", err);
+        } finally {
+            setLoadingUsers(false);
+        }
     };
 
-    const handlePrevPage = () => {
-        if (currentPage > 1) setCurrentPage(currentPage - 1);
+    const handleOpenUsersModal = () => {
+        setShowUsersModal(true);
+        if (usersList.length === 0) {
+            loadUsers(false);
+        }
     };
 
     return (
@@ -110,7 +129,7 @@ function AdminDashboard() {
                 {/* Stats row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div
-                        onClick={() => setShowUsersModal(true)}
+                        onClick={handleOpenUsersModal}
                         className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl rounded-[2rem] p-6 border border-slate-200/50 dark:border-white/5 shadow-xl flex items-center gap-6 group hover:-translate-y-1 transition-all duration-300 cursor-pointer"
                     >
                         <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shadow-sm border border-indigo-100 dark:border-indigo-800 group-hover:scale-110 transition-transform">
@@ -218,7 +237,7 @@ function AdminDashboard() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                                        {currentUsers.map((user) => (
+                                        {usersList.map((user) => (
                                             <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
                                                 <td className="py-4 px-6">
                                                     <div className="flex items-center gap-4">
@@ -258,32 +277,24 @@ function AdminDashboard() {
                         </div>
 
                         {/* Pagination Footer */}
-                        {totalPages > 1 && (
-                            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between shrink-0">
-                                <span className="text-sm text-slate-500 dark:text-slate-400">
-                                    Showing <span className="font-semibold text-slate-700 dark:text-slate-300">{indexOfFirstUser + 1}</span> to <span className="font-semibold text-slate-700 dark:text-slate-300">{Math.min(indexOfLastUser, usersList.length)}</span> of <span className="font-semibold text-slate-700 dark:text-slate-300">{usersList.length}</span> Users
-                                </span>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={handlePrevPage}
-                                        disabled={currentPage === 1}
-                                        className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        <ChevronLeft className="w-5 h-5" />
-                                    </button>
-                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 px-2">
-                                        Page {currentPage} of {totalPages}
-                                    </span>
-                                    <button
-                                        onClick={handleNextPage}
-                                        disabled={currentPage === totalPages}
-                                        className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        <ChevronRight className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between shrink-0">
+                            <span className="text-sm text-slate-500 dark:text-slate-400">
+                                Showing <span className="font-semibold text-slate-700 dark:text-slate-300">{usersList.length}</span> of <span className="font-semibold text-slate-700 dark:text-slate-300">{stats.totalUsers}</span> Users
+                            </span>
+                            
+                            {hasMoreUsers ? (
+                                <button
+                                    onClick={() => loadUsers(true)}
+                                    disabled={loadingUsers}
+                                    className="px-4 py-2 flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 dark:disabled:bg-indigo-800 text-white text-sm font-bold shadow-md transition-colors"
+                                >
+                                    {loadingUsers && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    Load More
+                                </button>
+                            ) : (
+                                <span className="text-sm font-medium text-slate-400 italic">All users loaded</span>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

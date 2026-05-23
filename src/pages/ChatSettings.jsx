@@ -132,9 +132,9 @@ export default function ChatSettings() {
         });
       });
 
-      // Super Admin sees EVERYONE in Global Chat or Groups
-      // Regular users only see room members (except for Global Chat where everyone is a member)
-      if (!isSuperAdmin && room.type !== 'global') {
+      // Everyone (including Super Admins) should only see the ACTUAL members of the room
+      // (except for Global Chat where everyone is implicitly a member)
+      if (room.type !== 'global') {
         users = users.filter(u => room.members?.includes(u.id));
       }
       

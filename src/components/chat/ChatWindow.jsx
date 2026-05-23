@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, LogOut, AlignLeft, Smile, PlusCircle, Settings, Hash, User, Users, MessageSquare, UserPlus } from "lucide-react";
 import { subscribeToMessages, sendMessage } from "../../firebase/chatService";
+import { db } from "../../firebase/firebaseConfig";
+import { doc, updateDoc } from "firebase/firestore";
 import EmojiPicker from 'emoji-picker-react';
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -23,6 +25,32 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
     });
     return () => unsubscribe();
   }, [activeRoom?.id]);
+
+  useEffect(() => {
+    // Self-healing: If we see a message with a senderPhoto, but the peerProfile doesn't have it,
+    // update the database so the sidebar (and other areas) get the photo!
+    const missingPhotos = new Map();
+    messages.forEach(msg => {
+      if (msg.senderId !== userId && msg.senderPhoto) {
+        const peer = peerProfiles[msg.senderId];
+        if (peer && !peer.photoURL && !missingPhotos.has(msg.senderId)) {
+          missingPhotos.set(msg.senderId, msg.senderPhoto);
+        }
+      }
+    });
+
+    if (missingPhotos.size > 0) {
+      missingPhotos.forEach((photoUrl, uid) => {
+        const userRef = doc(db, "users", uid);
+        updateDoc(userRef, { photoURL: photoUrl }).catch(console.error);
+        
+        // Mutate the local peerProfiles object so it reflects instantly without full page reload
+        // React might not re-render immediately for this mutation, but it will be there for the sidebar 
+        // when state updates trigger next.
+        peerProfiles[uid] = { ...peerProfiles[uid], photoURL: photoUrl };
+      });
+    }
+  }, [messages, peerProfiles, userId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
