@@ -1,4 +1,4 @@
-import { Users, UserCircle, Settings, LogOut, ChevronLeft, LayoutDashboard, CheckCircle2, ChevronDown, User as UserIcon, PlusCircle, UserPlus, BookOpen, ShieldAlert, Activity, X, Zap, MessageSquare, HelpCircle } from "lucide-react";
+import { Users, UserCircle, Settings, LogOut, ChevronLeft, LayoutDashboard, CheckCircle2, ChevronDown, User as UserIcon, PlusCircle, UserPlus, BookOpen, ShieldAlert, Activity, X, Zap, MessageSquare, HelpCircle, Code2 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase/firebaseConfig";
@@ -24,6 +24,7 @@ function Sidebar({ groupContext = {}, onClose }) {
     { name: 'Batch Mates', icon: Users, path: '/dashboard/peers' },
     { name: 'My Progress', icon: UserCircle, path: '/dashboard/my-progress' },
     { name: 'English Kicks', icon: Zap, path: '/dashboard/english-kick' },
+    { name: '1QAD Leetcode', icon: Code2, path: '/dashboard/chat?room=1qad' },
     { name: 'Chat', icon: MessageSquare, path: '/dashboard/chat', hideIfNoGroups: true },
     { name: 'My Profile', icon: UserIcon, path: '/dashboard/my-profile' },
   ];
@@ -111,7 +112,29 @@ function Sidebar({ groupContext = {}, onClose }) {
               // Hide Chat if user has no batches (unless they are admin)
               if (item.hideIfNoGroups && (!groups || groups.length === 0) && !isAdmin) return null;
 
-              const isActive = location.pathname === item.path || (item.path !== "/dashboard" && location.pathname.startsWith(item.path));
+              // Fix active logic for query parameters
+              const urlPath = item.path.split('?')[0];
+              const urlQuery = item.path.split('?')[1] || '';
+              const searchParams = new URLSearchParams(location.search);
+              const targetParams = new URLSearchParams(urlQuery);
+
+              let isActive = false;
+              if (item.path === "/dashboard") {
+                isActive = location.pathname === "/dashboard";
+              } else if (urlQuery) {
+                // If it has a query param (e.g. ?room=1qad), match both path and query
+                isActive = location.pathname.startsWith(urlPath);
+                for (const [key, value] of targetParams.entries()) {
+                  if (searchParams.get(key) !== value) isActive = false;
+                }
+              } else {
+                // If it has NO query param, but the current URL HAS one (like room=1qad), and this is the Chat tab, we shouldn't highlight Chat if we're explicitly highlighting 1QAD
+                isActive = location.pathname.startsWith(item.path);
+                if (item.name === 'Chat' && searchParams.get('room') === '1qad') {
+                  isActive = false; // Because 1QAD is active instead
+                }
+              }
+
               return (
                 <Link
                   key={item.name}
@@ -171,11 +194,10 @@ function Sidebar({ groupContext = {}, onClose }) {
         <Link
           to="/dashboard/help"
           onClick={() => onClose && onClose()}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-            location.pathname === '/dashboard/help'
-              ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
-              : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${location.pathname === '/dashboard/help'
+            ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
+            : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
         >
           <HelpCircle className={`w-5 h-5 ${location.pathname === '/dashboard/help' ? 'text-indigo-500' : 'text-slate-400 dark:text-slate-500'}`} />
           How it Works

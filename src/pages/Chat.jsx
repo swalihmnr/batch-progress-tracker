@@ -7,8 +7,10 @@ import {
   leaveGroupChat, 
   createGroupChat,
   initializeGlobalChat,
+  initialize1QADChat,
   requestJoinGroupChat
 } from "../firebase/chatService";
+import { triggerDailyLeetcodePost } from "../firebase/automationService";
 import { collection, query, where, getDocs, documentId } from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
 import ChatSidebar from "../components/chat/ChatSidebar";
@@ -40,7 +42,18 @@ export default function Chat() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    initializeGlobalChat().catch(err => console.error("Error init global chat:", err));
+    
+    // Initialize required rooms and trigger daily automation
+    const initChats = async () => {
+      try {
+        await initializeGlobalChat();
+        await initialize1QADChat();
+        await triggerDailyLeetcodePost();
+      } catch (err) {
+        console.error("Error initializing chats:", err);
+      }
+    };
+    initChats();
 
     const unsubscribe = subscribeToChatRooms(user.uid, (fetchedRooms) => {
       // Filter out rooms where the user is BANNED
@@ -48,8 +61,18 @@ export default function Chat() {
       setRooms(filteredRooms);
 
       if (!activeRoomId) {
-        const globalRoom = filteredRooms.find(r => r.type === 'global');
-        if (globalRoom) setActiveRoomId(globalRoom.id);
+        const params = new URLSearchParams(location.search);
+        const roomParam = params.get("room");
+        const savedRoomId = localStorage.getItem("lastActiveChatRoom");
+        
+        if (!roomParam) {
+          if (savedRoomId && filteredRooms.find(r => r.id === savedRoomId)) {
+            setActiveRoomId(savedRoomId);
+          } else {
+            const globalRoom = filteredRooms.find(r => r.type === 'global');
+            if (globalRoom) setActiveRoomId(globalRoom.id);
+          }
+        }
       }
     });
 
@@ -176,6 +199,8 @@ export default function Chat() {
   const handleSelectRoom = (roomId) => {
     setActiveRoomId(roomId);
     setShowMobileSidebar(false);
+    localStorage.setItem("lastActiveChatRoom", roomId);
+    navigate(`/dashboard/chat?room=${roomId}`, { replace: true });
   };
 
   const activeRoom = rooms.find(r => r.id === activeRoomId);
@@ -207,6 +232,7 @@ export default function Chat() {
           peerProfiles={peerProfiles}
           onLeaveRoom={handleLeaveRoom}
           onMenuClick={() => setShowMobileSidebar(true)}
+          groups={groups}
         />
       </div>
 

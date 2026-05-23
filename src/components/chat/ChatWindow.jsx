@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, LogOut, AlignLeft, Smile, PlusCircle, Settings, Hash, User, Users, MessageSquare, UserPlus } from "lucide-react";
+import { Send, LogOut, AlignLeft, Smile, PlusCircle, Settings, Hash, User, Users, MessageSquare, UserPlus, CheckCircle, Trophy } from "lucide-react";
 import { subscribeToMessages, sendMessage } from "../../firebase/chatService";
 import { db } from "../../firebase/firebaseConfig";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import EmojiPicker from 'emoji-picker-react';
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-export default function ChatWindow({ activeRoom, userId, userName, userPhoto, peerProfiles = {}, onLeaveRoom, onMenuClick }) {
+export default function ChatWindow({ activeRoom, userId, userName, userPhoto, peerProfiles = {}, onLeaveRoom, onMenuClick, groups = [] }) {
   const navigate = useNavigate();
   
   const [messages, setMessages] = useState([]);
@@ -15,16 +15,23 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showPolledUsersModal, setShowPolledUsersModal] = useState(null);
 
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     if (!activeRoom?.id) return;
+    
+    // We only subscribe if it's Global, 1QAD, or User is a member
+    if (!['global', '1qad'].includes(activeRoom.type) && !activeRoom.members?.includes(userId)) {
+      return; 
+    }
+
     const unsubscribe = subscribeToMessages(activeRoom.id, (msgs) => {
       setMessages(msgs);
     });
     return () => unsubscribe();
-  }, [activeRoom?.id]);
+  }, [activeRoom?.id, activeRoom?.type, activeRoom?.members, userId]);
 
   useEffect(() => {
     // Self-healing: If we see a message with a senderPhoto, but the peerProfile doesn't have it,
@@ -53,7 +60,8 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
   }, [messages, peerProfiles, userId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Jump to the bottom instantly to avoid glitchy scrolling on load
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, [messages]);
 
   const handleSend = async (e) => {
@@ -67,6 +75,37 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
       await sendMessage(activeRoom.id, userId, userName, userPhoto, textToSend);
     } catch (error) {
       console.error("Error sending message:", error);
+    }
+  };
+
+  const handlePollVote = async (msg) => {
+    try {
+      const existingVote = msg.pollResponses?.find(r => r.uid === userId);
+      const msgRef = doc(db, `chatRooms/${activeRoom.id}/messages/${msg.id}`);
+
+      if (existingVote) {
+        // Undo vote
+        await updateDoc(msgRef, {
+          pollResponses: arrayRemove(existingVote)
+        });
+        toast.success("Vote removed");
+      } else {
+        // Add vote
+        const batchName = groups && groups.length > 0 ? groups[0].name : "No Batch";
+        const pollData = {
+          uid: userId || "unknown",
+          name: userName || "Unknown User",
+          photo: userPhoto || null,
+          batch: batchName || "No Batch"
+        };
+        await updateDoc(msgRef, {
+          pollResponses: arrayUnion(pollData)
+        });
+        toast.success("Marked as done!");
+      }
+    } catch (err) {
+      console.error("Error voting on poll:", err);
+      toast.error("Failed to update status.");
     }
   };
 
@@ -308,7 +347,86 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
                         ? 'bg-indigo-600 text-white rounded-tr-md' 
                         : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700/50 rounded-tl-md'
                     }`}>
-                      {msg.text}
+                      {msg.type === '1qad_poll' ? (
+                        <div className="flex flex-col gap-4 min-w-[280px] sm:min-w-[360px] mt-1 p-3">
+                          <div className="flex flex-col gap-2">
+                            {msg.questionData ? (
+                                <>
+                                  <div className="font-bold text-xl text-slate-800 dark:text-white">
+                                    <span className="text-slate-500 dark:text-slate-400 font-semibold text-sm block mb-0.5">Question:</span>
+                                    {msg.questionData.title}
+                                  </div>
+                                  <div className="text-sm font-semibold flex items-center gap-2 mt-1">
+                                    <span className="text-slate-500 dark:text-slate-400">Difficulty:</span> 
+                                    <span className={`${
+                                      msg.questionData.difficulty === 'Super Easy' ? 'text-cyan-600 bg-cyan-500/10 dark:text-cyan-400 px-2 py-0.5 rounded-md' :
+                                      msg.questionData.difficulty === 'Easy' ? 'text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md' : 
+                                      msg.questionData.difficulty === 'Medium' ? 'text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md' : 
+                                      'text-red-500 bg-red-500/10 px-2 py-0.5 rounded-md'
+                                    }`}>{msg.questionData.difficulty}</span>
+                                  </div>
+                                  <a href={msg.questionData.url} target="_blank" rel="noopener noreferrer" className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold underline mt-2 break-all flex items-center gap-1 w-fit">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                    Solve on LeetCode
+                                  </a>
+                                </>
+                            ) : (
+                                <div className="font-semibold text-lg" dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br/>') }} />
+                            )}
+                          </div>
+                          
+                          <div className="mt-2">
+                            <button 
+                              onClick={() => handlePollVote(msg)}
+                              className={`${
+                                msg.pollResponses?.some(r => r.uid === userId) 
+                                  ? 'bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-700/80 dark:hover:bg-slate-700 dark:text-slate-300 shadow-inner' 
+                                  : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm'
+                              } font-bold py-2.5 px-4 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 w-full`}
+                            >
+                              {msg.pollResponses?.some(r => r.uid === userId) ? (
+                                <>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                                  Undo
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="w-5 h-5" /> 
+                                  Mark as Done
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          <div 
+                            onClick={() => msg.pollResponses?.length > 0 && setShowPolledUsersModal(msg)}
+                            className={`flex items-center gap-3 mt-1 pt-4 border-t border-slate-200/50 dark:border-slate-700/50 rounded-lg p-2 -mx-2 transition-colors ${msg.pollResponses?.length > 0 ? 'cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-800/30' : ''}`}
+                          >
+                            <div className="flex -space-x-2 overflow-hidden shrink-0">
+                              {(msg.pollResponses || []).slice(0, 3).map((res, i) => (
+                                <div key={i} className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-sm" title={res.name}>
+                                  {res.photo ? <img src={res.photo} alt={res.name} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-slate-500">{res.name?.charAt(0)?.toUpperCase()}</span>}
+                                </div>
+                              ))}
+                              {msg.pollResponses?.length > 3 && (
+                                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-800 flex items-center justify-center shrink-0 shadow-sm z-10">
+                                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">+{msg.pollResponses.length - 3}</span>
+                                </div>
+                              )}
+                              {(!msg.pollResponses || msg.pollResponses.length === 0) && (
+                                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-800 flex items-center justify-center shrink-0 shadow-sm border-dashed">
+                                  <Trophy className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                              {msg.pollResponses?.length || 0} {(msg.pollResponses?.length === 1) ? 'person' : 'persons'} completed
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        msg.text
+                      )}
                     </div>
                   </div>
                 </div>
@@ -335,7 +453,11 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
       )}
 
       {/* Input Area */}
-      {(activeRoom?.members?.includes(userId) || activeRoom?.type === 'global') ? (
+      {activeRoom?.type === '1qad' ? (
+        <div className="p-4 text-center text-sm font-medium text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-black border-t border-slate-200 dark:border-slate-800">
+          This is a read-only channel for Daily Challenges.
+        </div>
+      ) : (activeRoom?.members?.includes(userId) || activeRoom?.type === 'global') ? (
       <div className="px-3 pb-3 sm:px-4 sm:pb-4 pt-2 bg-white dark:bg-[#0a0a0a] shrink-0 border-t border-slate-100 dark:border-slate-900">
         <form onSubmit={handleSend} className="relative flex items-end bg-slate-100 dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-inner outline outline-1 outline-transparent focus-within:outline-indigo-500/30 transition-all">
           <button
@@ -381,6 +503,46 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
       <div className="px-3 pb-3 sm:px-4 sm:pb-4 pt-2 bg-white dark:bg-[#0a0a0a] shrink-0 border-t border-slate-100 dark:border-slate-900 flex justify-center items-center py-4">
          <p className="text-slate-500 text-sm font-medium">You must join this chat to send messages.</p>
       </div>
+      )}
+
+      {/* Polled Users Modal */}
+      {showPolledUsersModal && (
+        <div className="absolute inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col scale-100 transition-transform">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800/80">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white leading-none">Completed By</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{showPolledUsersModal.questionData?.title}</p>
+              </div>
+              <button 
+                onClick={() => setShowPolledUsersModal(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors bg-slate-100 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 p-1.5 rounded-full"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto max-h-[60vh] p-4 flex flex-col gap-3">
+              {showPolledUsersModal.pollResponses?.map((res, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors">
+                  <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0 shadow-sm" title={res.name}>
+                    {res.photo ? <img src={res.photo} alt={res.name} className="w-full h-full object-cover" /> : <span className="text-sm font-bold text-slate-500 w-full h-full flex items-center justify-center">{res.name?.charAt(0)?.toUpperCase()}</span>}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{res.name}</span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{res.batch || "Unknown Batch"}</span>
+                  </div>
+                </div>
+              ))}
+              
+              {!showPolledUsersModal.pollResponses?.length && (
+                <div className="py-8 text-center text-sm text-slate-500">
+                  No one has completed this yet!
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

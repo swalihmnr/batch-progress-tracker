@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebase/firebaseConfig";
 import { collection, getDocs, query, orderBy, getCountFromServer, limit, startAfter } from "firebase/firestore";
-import { ShieldCheck, Users, BookOpen, ChevronRight, Activity, X, Loader2 } from "lucide-react";
+import { ShieldCheck, Users, BookOpen, ChevronRight, Activity, X, Loader2, Megaphone, Send } from "lucide-react";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
+import { broadcastAnnouncement } from "../firebase/adminService";
 
 function AdminDashboard() {
     const [stats, setStats] = useState({ totalUsers: 0, totalGroups: 0, totalViews: 0 });
@@ -11,6 +13,12 @@ function AdminDashboard() {
     const [loading, setLoading] = useState(true);
 
     const [showUsersModal, setShowUsersModal] = useState(false);
+    
+    // Broadcast State
+    const [announceTitle, setAnnounceTitle] = useState("");
+    const [announceMessage, setAnnounceMessage] = useState("");
+    const [announceLink, setAnnounceLink] = useState("/dashboard/chat?room=1qad");
+    const [isBroadcasting, setIsBroadcasting] = useState(false);
     
     // Server-side lazy loading state
     const [lastVisible, setLastVisible] = useState(null);
@@ -114,6 +122,31 @@ function AdminDashboard() {
         }
     };
 
+    const handleBroadcast = async (e) => {
+        e.preventDefault();
+        if (!announceMessage.trim()) {
+            toast.error("Announcement message is required.");
+            return;
+        }
+
+        setIsBroadcasting(true);
+        try {
+            const count = await broadcastAnnouncement(
+                announceTitle,
+                announceMessage,
+                announceLink
+            );
+            toast.success(`Announcement broadcasted to ${count} users!`);
+            setAnnounceTitle("");
+            setAnnounceMessage("");
+            setAnnounceLink("");
+        } catch (error) {
+            toast.error("Failed to broadcast announcement.");
+        } finally {
+            setIsBroadcasting(false);
+        }
+    };
+
     return (
         <div className="min-h-screen p-4 sm:p-6 lg:p-8 transition-colors duration-300">
             <div className="max-w-[1600px] w-full mx-auto space-y-8">
@@ -167,6 +200,71 @@ function AdminDashboard() {
                             <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Platform Views</p>
                             <p className="text-4xl font-black text-slate-800 dark:text-slate-100">{stats.totalViews}</p>
                         </div>
+                    </div>
+                </div>
+
+                {/* Broadcast Announcement */}
+                <div className="bg-gradient-to-br from-indigo-600 to-purple-700 dark:from-indigo-900 dark:to-purple-950 rounded-[2rem] p-1 shadow-2xl relative overflow-hidden transition-all duration-300">
+                    <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/10 rounded-full blur-[60px] pointer-events-none translate-x-1/3 -translate-y-1/3" />
+                    <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-white/5 rounded-full blur-[40px] pointer-events-none -translate-x-1/3 translate-y-1/3" />
+                    
+                    <div className="bg-white dark:bg-slate-950 rounded-[1.8rem] p-6 sm:p-8 relative z-10 border border-white/20 dark:border-white/5">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                <Megaphone className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Broadcast Announcement</h2>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">Send a push notification to every single user.</p>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleBroadcast} className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1">Title (Optional)</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="e.g. Important Update!"
+                                        value={announceTitle}
+                                        onChange={(e) => setAnnounceTitle(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1">Link (Optional)</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="e.g. /dashboard/chat?room=1qad"
+                                        value={announceLink}
+                                        onChange={(e) => setAnnounceLink(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1">Message</label>
+                                <textarea 
+                                    placeholder="Type your announcement here..."
+                                    value={announceMessage}
+                                    onChange={(e) => setAnnounceMessage(e.target.value)}
+                                    rows={3}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none resize-none"
+                                />
+                            </div>
+
+                            <div className="flex justify-end pt-2">
+                                <button
+                                    type="submit"
+                                    disabled={isBroadcasting || !announceMessage.trim()}
+                                    className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white font-bold rounded-xl transition-all shadow-md shadow-indigo-600/20 hover:shadow-indigo-600/40 active:scale-95"
+                                >
+                                    {isBroadcasting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                                    {isBroadcasting ? "Broadcasting..." : "Broadcast to All Users"}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
 

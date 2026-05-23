@@ -1,4 +1,4 @@
-import { Users, Hash, LogOut, MessageSquarePlus, Globe, Bell, BellOff, User } from "lucide-react";
+import { Users, Hash, LogOut, MessageSquarePlus, Globe, Bell, BellOff, User, Code2 } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import toast from "react-hot-toast";
@@ -73,8 +73,9 @@ export default function ChatSidebar({
     );
   };
 
-  // Separate into global, joined, and discover
+  // Separate into global, 1qad, joined, and discover
   const globalRoom = rooms.find(r => r.type === 'global');
+  const qadRoom = rooms.find(r => r.type === '1qad');
   const joinedRooms = rooms.filter(r => (r.type === 'group' || r.type === 'private') && r.members?.includes(userId));
   const discoverRooms = rooms.filter(r => r.type === 'group' && !r.members?.includes(userId));
 
@@ -125,6 +126,37 @@ export default function ChatSidebar({
                   title={userProfile?.mutedChats?.[globalRoom.id] ? "Unmute" : "Mute"}
                 >
                   {userProfile?.mutedChats?.[globalRoom.id] ? (
+                    <BellOff className="w-3.5 h-3.5" />
+                  ) : (
+                    <Bell className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+          )}
+          {qadRoom && (
+              <div
+                className={`w-full group/item flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer mt-1 ${
+                  activeRoomId === qadRoom.id
+                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200"
+                    : "text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800"
+                }`}
+                onClick={() => onSelectRoom(qadRoom)}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <Code2 className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <span className="truncate">{qadRoom.name || "1QAD (Daily LeetCode)"}</span>
+                </div>
+                
+                <button
+                  onClick={(e) => handleToggleMute(e, qadRoom.id)}
+                  className={`p-1 rounded-md opacity-0 group-hover/item:opacity-100 transition-all hover:bg-white dark:hover:bg-slate-700 ${
+                    userProfile?.mutedChats?.[qadRoom.id] ? "text-amber-500 opacity-100" : "text-slate-400"
+                  }`}
+                  title={userProfile?.mutedChats?.[qadRoom.id] ? "Unmute" : "Mute"}
+                >
+                  {userProfile?.mutedChats?.[qadRoom.id] ? (
                     <BellOff className="w-3.5 h-3.5" />
                   ) : (
                     <Bell className="w-3.5 h-3.5" />

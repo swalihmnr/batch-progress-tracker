@@ -22,6 +22,22 @@ export const initializeGlobalChat = async () => {
 };
 
 /**
+ * Ensures the "1QAD" (1 Question A Day) chat exists.
+ */
+export const initialize1QADChat = async () => {
+  const qadRef = doc(db, "chatRooms", "1qad");
+  const qadSnap = await getDoc(qadRef);
+  if (!qadSnap.exists()) {
+    await setDoc(qadRef, {
+      name: "1QAD (Daily LeetCode)",
+      type: "1qad",
+      members: [], 
+      createdAt: serverTimestamp(),
+    });
+  }
+};
+
+/**
  * Creates a new Group Chat
  */
 export const createGroupChat = async (name, creatorId) => {
@@ -132,10 +148,10 @@ export const subscribeToChatRooms = (userId, callback) => {
   
   const chatRoomsRef = collection(db, "chatRooms");
   
-  // Query 1: Global and Group rooms (Discovery)
+  // Query 1: Global, 1QAD, and Group rooms (Discovery)
   const qPublic = query(
     chatRoomsRef, 
-    where("type", "in", ["global", "group"])
+    where("type", "in", ["global", "1qad", "group"])
   );
 
   // Query 2: Private rooms where USER is a member

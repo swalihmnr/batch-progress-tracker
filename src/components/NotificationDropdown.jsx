@@ -115,11 +115,14 @@ function NotificationDropdown() {
                 className="relative p-2.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                 title="Notifications"
             >
-                <Bell className="w-5 h-5" />
+                <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'animate-ring text-rose-500' : ''}`} />
                 {unreadCount > 0 && (
-                    <span className="absolute top-0 right-0 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white dark:border-slate-900 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
+                    <>
+                        <span className="absolute top-0 right-0 w-4 h-4 rounded-full bg-rose-500 animate-ping opacity-75 transform translate-x-1/4 -translate-y-1/4 pointer-events-none"></span>
+                        <span className="absolute top-0 right-0 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white dark:border-slate-900 pointer-events-none transform translate-x-1/4 -translate-y-1/4 shadow-sm">
+                            {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
+                    </>
                 )}
             </button>
 
@@ -185,10 +188,10 @@ function NotificationDropdown() {
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0 pr-4">
-                                                <p className={`text-sm ${notification.unread ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-300'}`}>
+                                                <p className={`text-sm ${notification.unread ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-300'} truncate`}>
                                                     {notification.title}
                                                 </p>
-                                                <p className={`text-sm mt-1 leading-relaxed ${notification.unread ? 'text-slate-600 dark:text-slate-400' : 'text-slate-500 dark:text-slate-500'}`}>
+                                                <p className={`text-sm mt-1 leading-relaxed ${notification.unread ? 'text-slate-600 dark:text-slate-400' : 'text-slate-500 dark:text-slate-500'} line-clamp-2`}>
                                                     {notification.message}
                                                 </p>
                                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-2">

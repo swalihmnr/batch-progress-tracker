@@ -123,46 +123,55 @@ export default function NotificationManager() {
         return () => unsubscribe();
     }, [user]);
 
-    // 4. Attach Message Listeners to Global Room ONLY (since it doesn't create persistent notifications)
+    // 4. Attach Message Listeners to Global and 1QAD Rooms (since they don't create persistent notifications)
     useEffect(() => {
         if (!user) return;
 
-        const qMsgs = query(
-            collection(db, "chatRooms", "global", "messages"),
-            orderBy("timestamp", "desc"),
-            limit(1)
-        );
+        const roomsToListen = ['global', '1qad'];
+        const unsubscribes = [];
 
-        const unsubscribe = onSnapshot(qMsgs, (snapshot) => {
-            if (initialChatsLoad.current) return;
+        roomsToListen.forEach(roomId => {
+            const qMsgs = query(
+                collection(db, "chatRooms", roomId, "messages"),
+                orderBy("timestamp", "desc"),
+                limit(1)
+            );
 
-            snapshot.docChanges().forEach(change => {
-                if (change.type === "added") {
-                    const msg = change.doc.data();
-                    
-                    if (msg.senderId === user.uid) return;
-                    if (msg.timestamp?.toMillis && (Date.now() - msg.timestamp.toMillis() > 10000)) return;
-                    if (mutedPreferences['global'] === true) return;
+            const unsubscribe = onSnapshot(qMsgs, (snapshot) => {
+                if (initialChatsLoad.current) return;
 
-                    // Global chat is purely ephemeral sound/toast
-                    playNotificationSound();
-                    
-                    const currentPath = window.location.pathname;
-                    if (!(currentPath === "/dashboard/chat" || currentPath.includes("/dashboard/chat/global"))) {
-                        toast(`${msg.senderName} (Global): ${msg.text.length > 20 ? msg.text.substring(0,20)+'...' : msg.text}`, {
-                            icon: '🌐',
-                            duration: 3000
-                        });
+                snapshot.docChanges().forEach(change => {
+                    if (change.type === "added") {
+                        const msg = change.doc.data();
+                        
+                        if (msg.senderId === user.uid) return;
+                        if (msg.timestamp?.toMillis && (Date.now() - msg.timestamp.toMillis() > 10000)) return;
+                        if (mutedPreferences[roomId] === true) return;
+
+                        // Public chats are purely ephemeral sound/toast
+                        playNotificationSound();
+                        
+                        const currentPath = window.location.pathname;
+                        if (!(currentPath === "/dashboard/chat" || currentPath.includes(`/dashboard/chat?room=${roomId}`))) {
+                            const roomName = roomId === '1qad' ? '1QAD' : 'Global';
+                            toast(`${msg.senderName} (${roomName}): ${msg.text ? (msg.text.length > 20 ? msg.text.substring(0,20)+'...' : msg.text) : 'Sent an attachment'}`, {
+                                icon: roomId === '1qad' ? '🎯' : '🌐',
+                                duration: 3000
+                            });
+                        }
                     }
-                }
+                });
             });
+            unsubscribes.push(unsubscribe);
         });
         
         setTimeout(() => {
             initialChatsLoad.current = false;
         }, 2000);
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribes.forEach(unsub => unsub());
+        };
     }, [user, mutedPreferences]);
 
     return null; // This component handles side effects only
