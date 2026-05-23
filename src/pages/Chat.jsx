@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { 
@@ -40,10 +40,16 @@ export default function Chat() {
   const [newGroupName, setNewGroupName] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
 
+  const activeRoomIdRef = React.useRef(activeRoomId);
+
+  useEffect(() => {
+    activeRoomIdRef.current = activeRoomId;
+  }, [activeRoomId]);
+
   useEffect(() => {
     if (!user?.uid) return;
     
-    // Initialize required rooms and trigger daily automation
+    // Initialize required rooms and trigger daily automation ONCE per session
     const initChats = async () => {
       try {
         await initializeGlobalChat();
@@ -60,8 +66,9 @@ export default function Chat() {
       const filteredRooms = fetchedRooms.filter(r => !r.bannedUsers?.includes(user?.uid));
       setRooms(filteredRooms);
 
-      if (!activeRoomId) {
-        const params = new URLSearchParams(location.search);
+      // We use the ref to prevent stale closures without adding it to the dependency array
+      if (!activeRoomIdRef.current) {
+        const params = new URLSearchParams(window.location.search);
         const roomParam = params.get("room");
         const savedRoomId = localStorage.getItem("lastActiveChatRoom");
         
@@ -77,7 +84,7 @@ export default function Chat() {
     });
 
     return () => unsubscribe();
-  }, [activeRoomId]);
+  }, [user?.uid]);
 
   // Auto-select room from URL query param (e.g. from notification click)
   useEffect(() => {
