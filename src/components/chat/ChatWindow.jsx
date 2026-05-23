@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, LogOut, AlignLeft, Smile, PlusCircle, Settings, Hash, User, Users, MessageSquare, UserPlus, CheckCircle, Trophy, ChevronDown, Edit2, Trash2, Info } from "lucide-react";
+import { Send, LogOut, AlignLeft, Smile, PlusCircle, Settings, Hash, User, Users, MessageSquare, UserPlus, CheckCircle, Check, Trophy, ChevronDown, Edit2, Trash2, Info, Loader2 } from "lucide-react";
 import { subscribeToMessages, sendMessage, editMessage, deleteMessage, markRoomAsRead } from "../../firebase/chatService";
 import { db } from "../../firebase/firebaseConfig";
 import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
@@ -22,6 +22,7 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
   const [editingMessage, setEditingMessage] = useState(null);
   const [editInputText, setEditInputText] = useState("");
   const [showSeenByModal, setShowSeenByModal] = useState(null);
+  const [roomLoadingId, setRoomLoadingId] = useState(null);
 
   const messagesEndRef = useRef(null);
 
@@ -29,19 +30,23 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
   const isMember = activeRoom?.members?.includes(userId);
 
   useEffect(() => {
-    // Clear messages instantly when switching rooms to prevent showing previous chat
-    setMessages([]);
-    
     if (!activeRoom?.id) return;
+    
+    // Start loading this room, instantly clear old messages
+    setRoomLoadingId(activeRoom.id);
+    setMessages([]);
     
     // We only subscribe if it's Global, 1QAD, or User is a member
     if (!isGlobalOrQad && !isMember) {
+      setRoomLoadingId(null);
       return; 
     }
 
     const unsubscribe = subscribeToMessages(activeRoom.id, (msgs) => {
       setMessages(msgs);
+      setRoomLoadingId(null); // Fully loaded
     });
+    
     return () => unsubscribe();
   }, [activeRoom?.id, isGlobalOrQad, isMember]);
 
@@ -317,7 +322,9 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
         className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 space-y-4 bg-slate-50/50 dark:bg-black w-full"
         onClick={() => setShowEmojiPicker(false)}
       >
-        {messages.length === 0 ? (
+        {roomLoadingId === activeRoom?.id ? (
+           <div className="h-full w-full"></div>
+        ) : messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-slate-400 font-medium text-sm">
             Say hello to start the conversation!
           </div>
@@ -657,11 +664,15 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
               {(() => {
                 const readReceipts = activeRoom.readReceipts || {};
                 const msgTime = showSeenByModal.timestamp?.toMillis ? showSeenByModal.timestamp.toMillis() : Date.now();
-                const readers = (activeRoom.members || []).filter(memberId => {
+                
+                // Use Object.keys(readReceipts) to handle Global/1QAD where members array is empty
+                const readerIds = Object.keys(readReceipts).filter(memberId => {
                    if (memberId === userId) return false; // don't show self
                    const readTime = readReceipts[memberId]?.toMillis ? readReceipts[memberId].toMillis() : 0;
                    return readTime >= msgTime;
-                }).map(memberId => peerProfiles[memberId]);
+                });
+                
+                const readers = readerIds.map(id => peerProfiles[id] || { id, fullName: "User" });
 
                 if (readers.length === 0) {
                   return <div className="py-8 text-center text-sm text-slate-500">No one has read this yet!</div>;
