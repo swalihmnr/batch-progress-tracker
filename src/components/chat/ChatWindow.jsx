@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, LogOut, AlignLeft, Smile, PlusCircle, Settings, Hash, User, MessageSquare, UserPlus } from "lucide-react";
+import { Send, LogOut, AlignLeft, Smile, PlusCircle, Settings, Hash, User, Users, MessageSquare, UserPlus } from "lucide-react";
 import { subscribeToMessages, sendMessage } from "../../firebase/chatService";
 import EmojiPicker from 'emoji-picker-react';
 import { useNavigate } from "react-router-dom";
@@ -120,6 +120,16 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
         </div>
         
         <div className="flex items-center gap-1">
+          {isGlobal && (
+            <button
+              onClick={() => navigate(`/dashboard/chat/${activeRoom.id}/settings?showMembers=true`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 mr-1 text-xs sm:text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:text-indigo-400 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 rounded-lg transition-colors outline-none"
+              title="View All Members"
+            >
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Members</span>
+            </button>
+          )}
           {/* Pending Requests Bell — only visible to group members */}
           {pendingCount > 0 && (
             <button
@@ -155,12 +165,29 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
         ) : (
           messages.map((msg, idx) => {
             const isMe = msg.senderId === userId;
-            const showAvatar = idx === 0 || messages[idx - 1].senderId !== msg.senderId;
-            const timeString = msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+            const timeString = msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' }) : '';
+            
+            let showAvatar = true;
+            if (idx > 0) {
+              const prevMsg = messages[idx - 1];
+              if (prevMsg.senderId === msg.senderId) {
+                if (msg.timestamp?.toDate && prevMsg.timestamp?.toDate) {
+                  const prevTime = prevMsg.timestamp.toDate().getTime();
+                  const currTime = msg.timestamp.toDate().getTime();
+                  // Group messages sent within 5 minutes (300,000 ms) of each other
+                  if (currTime - prevTime < 5 * 60 * 1000) {
+                    showAvatar = false;
+                  }
+                } else if (!msg.timestamp?.toDate && !prevMsg.timestamp?.toDate) {
+                  showAvatar = false; // Group optimistic UI messages
+                }
+              }
+            }
 
             // Resolve Sender Name and Photo from peerProfiles for consistency
             const senderProfile = !isMe ? peerProfiles[msg.senderId] : null;
             const displaySenderName = isMe ? "You" : (senderProfile?.fullName || msg.senderName || "Unknown");
+            const avatarName = isMe ? (userName || "User") : displaySenderName;
             const displaySenderPhoto = isMe ? userPhoto : (senderProfile?.photoURL || msg.senderPhoto);
 
             return (
@@ -174,9 +201,17 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
                         className="w-8 h-8 rounded-full bg-indigo-500 overflow-hidden flex items-center justify-center text-white shadow-sm mt-1 cursor-pointer hover:opacity-80 transition-opacity"
                     >
                       {displaySenderPhoto ? (
-                        <img src={displaySenderPhoto} alt="" className="w-full h-full object-cover" />
+                        <img 
+                          src={displaySenderPhoto} 
+                          alt="" 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(avatarName)}&background=6366f1&color=fff`;
+                          }}
+                        />
                       ) : (
-                        <span className="font-bold text-xs uppercase">{(displaySenderName).charAt(0)}</span>
+                        <span className="font-bold text-xs uppercase">{(avatarName).charAt(0)}</span>
                       )}
                     </div>
                   </div>

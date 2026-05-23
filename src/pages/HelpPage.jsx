@@ -318,7 +318,7 @@ export default function HelpPage() {
         {/* Connect with Admin Card (Shown to everyone, for preview/actual use) */}
         <div className="flex justify-center mt-16 mb-12">
           <div className="animate-float-slight glow-box bg-white/90 dark:bg-slate-900/90 rounded-full border border-indigo-100/60 dark:border-indigo-800/40 px-10 py-5 flex flex-col md:flex-row items-center gap-8 shadow-2xl backdrop-blur-lg">
-            <h3 className="font-extrabold text-slate-800 dark:text-white text-xl tracking-tight whitespace-nowrap">Anything in your mind?</h3>
+            <h5 className="font-extrabold text-slate-800 dark:text-white text-xl tracking-tight whitespace-nowrap">Anything in your mind?</h5>
             <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 hidden md:block"></div>
             <button
               onClick={handleConnectAdmin}

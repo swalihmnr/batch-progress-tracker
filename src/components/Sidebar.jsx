@@ -20,6 +20,7 @@ function Sidebar({ groupContext = {}, onClose }) {
 
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', end: true },
+    { name: 'Batch Info', icon: Settings, path: '/dashboard/group-info' },
     { name: 'Batch Mates', icon: Users, path: '/dashboard/peers' },
     { name: 'My Progress', icon: UserCircle, path: '/dashboard/my-progress' },
     { name: 'English Kicks', icon: Zap, path: '/dashboard/english-kick' },

@@ -92,6 +92,14 @@ export default function ChatSettings() {
     fetchRoom();
   }, [roomIdParam, navigate, user.uid]);
 
+  // Check URL params to auto-open members modal
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("showMembers") === "true" && room && room.type !== 'private') {
+      handleOpenMembersModal();
+    }
+  }, [room]);
+
   const toggleMute = async () => {
       try {
           const userRef = doc(db, "users", user.uid);
@@ -555,8 +563,11 @@ export default function ChatSettings() {
                             <span className="text-[13px] font-medium text-slate-700 dark:text-slate-300 truncate">{m.name}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <button onClick={() => navigate(`/dashboard/profile/${m.id}`)} className="p-1.5 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full" title="View Profile">
-                                <ExternalLink className="w-3.5 h-3.5" />
+                            <button 
+                                onClick={() => navigate(`/dashboard/profile/${m.id}`)} 
+                                className="px-2.5 py-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:text-indigo-400 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 rounded-md transition-colors"
+                            >
+                                Profile
                             </button>
                             
                             {/* Kick/Ban UI for Admins & SuperAdmin */}

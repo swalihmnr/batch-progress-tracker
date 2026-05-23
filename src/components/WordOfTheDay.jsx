@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function WordOfTheDay({ compact = false }) {
+    const navigate = useNavigate();
     const [wordData, setWordData] = useState({ word: "", meaning: "" });
     const [loading, setLoading] = useState(true);
 
@@ -110,7 +112,11 @@ export default function WordOfTheDay({ compact = false }) {
     }
 
     return (
-        <div className="flex flex-col min-w-0 ps-2 lg:ps-0 py-1">
+        <div 
+            onClick={() => navigate('/dashboard/english-kick')}
+            className="flex flex-col min-w-0 ps-2 lg:ps-0 py-1 cursor-pointer hover:opacity-80 transition-opacity"
+            title="Go to English Kick"
+        >
             <div className="flex items-center gap-1.5 mb-0.5">
                 <span className="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1">
                     <Sparkles className="w-3 h-3" /> Word of the Day

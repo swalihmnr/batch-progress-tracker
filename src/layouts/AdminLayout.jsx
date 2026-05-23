@@ -26,7 +26,7 @@ function AdminLayout() {
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-                <Topbar toggleSidebar={() => setIsSidebarOpen(true)} />
+                <Topbar onMenuClick={() => setIsSidebarOpen(true)} />
                 <main className="flex-1 overflow-y-auto w-full relative">
                     <Outlet />
                 </main>

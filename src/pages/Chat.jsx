@@ -97,26 +97,34 @@ export default function Chat() {
       if (idsToFetch.size === 0) return;
 
       try {
-        // Firestore 'in' query limit is 30. If more, we should chunk or handle differently.
-        // For now, assume < 30 relevant users for the current view.
-        const idArray = Array.from(idsToFetch).slice(0, 30);
-        const q = query(
-          collection(db, "users"),
-          where(documentId(), "in", idArray)
-        );
-        const snap = await getDocs(q);
-        const newProfiles = { ...peerProfiles };
-        snap.forEach(doc => {
-          newProfiles[doc.id] = doc.data();
+        const idArray = Array.from(idsToFetch);
+        const chunkedPromises = [];
+
+        for (let i = 0; i < idArray.length; i += 30) {
+          const chunk = idArray.slice(i, i + 30);
+          const q = query(collection(db, "users"), where(documentId(), "in", chunk));
+          chunkedPromises.push(getDocs(q));
+        }
+
+        const snaps = await Promise.all(chunkedPromises);
+        
+        setPeerProfiles(prev => {
+          const newProfiles = { ...prev };
+          snaps.forEach(snap => {
+            snap.forEach(doc => {
+              newProfiles[doc.id] = doc.data();
+            });
+          });
+          return newProfiles;
         });
-        setPeerProfiles(newProfiles);
+
       } catch (error) {
         console.error("Error fetching peer profiles:", error);
       }
     };
 
     fetchRelevantProfiles();
-  }, [rooms, user?.uid, activeRoomId, peerProfiles]);
+  }, [rooms, user?.uid, activeRoomId]); // removed peerProfiles from dependency array to prevent loop
 
   const handleJoinRoom = async (roomId, isRequest = false) => {
     try {

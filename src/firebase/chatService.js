@@ -185,13 +185,14 @@ export const subscribeToChatRooms = (userId, callback) => {
 /**
  * Send a message to a specific room and notify members
  */
-export const sendMessage = async (roomId, senderId, senderName, senderPhoto, text) => {
-  if (!text.trim()) return;
+export const sendMessage = async (roomId, senderId, senderName, senderPhoto, text, imageUrl = null) => {
+  if (!text.trim() && !imageUrl) return;
   
   // 1. Add Message to room
   const messagesRef = collection(db, "chatRooms", roomId, "messages");
   await addDoc(messagesRef, {
     text,
+    imageUrl: imageUrl || null,
     senderId,
     senderName,
     senderPhoto: senderPhoto || null,
@@ -222,10 +223,11 @@ export const sendMessage = async (roomId, senderId, senderName, senderPhoto, tex
         const isMuted = !!memberData.mutedChats?.[roomId];
         
         if (!isMuted) {
+          const notifMsg = imageUrl && !text.trim() ? "Sent an image" : (text.length > 50 ? text.substring(0, 47) + "..." : text);
           const notifRef = collection(db, "users", memberId, "notifications");
           await addDoc(notifRef, {
             title: `Message: ${senderName}`,
-            message: text.length > 50 ? text.substring(0, 47) + "..." : text,
+            message: notifMsg,
             type: "chat",
             unread: true,
             createdAt: serverTimestamp(),
