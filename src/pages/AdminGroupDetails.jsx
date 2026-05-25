@@ -28,6 +28,7 @@ function AdminGroupDetails() {
     const { groupId } = useParams();
     const [groupData, setGroupData] = useState(null);
     const [progressList, setProgressList] = useState([]);
+    const [totalSubmissions, setTotalSubmissions] = useState(0);
     const [loading, setLoading] = useState(true);
     const [chatMessagesCount, setChatMessagesCount] = useState(0);
     
@@ -84,7 +85,19 @@ function AdminGroupDetails() {
             );
             const snapshot = await getDocs(q);
             const pData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            setProgressList(pData);
+            setTotalSubmissions(pData.length);
+
+            // Filter to keep only the latest record per user
+            const seenUsers = new Set();
+            const latestProgressList = pData.filter(item => {
+                if (seenUsers.has(item.userId)) {
+                    return false;
+                }
+                seenUsers.add(item.userId);
+                return true;
+            });
+
+            setProgressList(latestProgressList);
 
             // Fetch chat messages count
             try {
@@ -283,7 +296,7 @@ function AdminGroupDetails() {
                     <div className="flex bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 items-center gap-4">
                         <Users className="w-8 h-8 text-indigo-500" />
                         <div>
-                            <p className="text-2xl font-black text-slate-800 dark:text-slate-100">{progressList.length}</p>
+                            <p className="text-2xl font-black text-slate-800 dark:text-slate-100">{totalSubmissions}</p>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Submissions</p>
                         </div>
                     </div>

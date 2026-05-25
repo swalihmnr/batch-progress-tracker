@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, onSnapshot, query, orderBy, serverTimestamp, getDocs, updateDoc, arrayUnion, arrayRemove, setDoc, getDoc, deleteDoc, where, or } from "firebase/firestore";
+import { collection, doc, addDoc, onSnapshot, query, orderBy, serverTimestamp, getDocs, updateDoc, arrayUnion, arrayRemove, setDoc, getDoc, deleteDoc, where, or, writeBatch } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 
 // -------------------------------------------------------------
@@ -215,6 +215,13 @@ export const sendMessage = async (roomId, senderId, senderName, senderPhoto, tex
     timestamp: serverTimestamp(),
   });
 
+  // Update room to indicate it has messages (prevents it from being hidden)
+  const roomRef = doc(db, "chatRooms", roomId);
+  await updateDoc(roomRef, {
+      hasMessages: true,
+      lastMessageTime: serverTimestamp()
+  });
+
   // 2. Handle Notifications (Skip for global to avoid spam)
   if (roomId === 'global') return;
 
@@ -294,6 +301,20 @@ export const markRoomAsRead = async (roomId, userId) => {
     await updateDoc(roomRef, {
       [`readReceipts.${userId}`]: serverTimestamp()
     });
+
+    // Also clear notifications for this room so unread badges stay accurate
+    const notifsRef = collection(db, "users", userId, "notifications");
+    const q = query(notifsRef, where("roomId", "==", roomId), where("unread", "==", true));
+    const snap = await getDocs(q);
+    
+    if (!snap.empty) {
+       const batch = writeBatch(db);
+       snap.forEach(docSnap => {
+           batch.update(docSnap.ref, { unread: false });
+       });
+       await batch.commit();
+    }
+
   } catch (err) {
     console.error("Error marking room as read:", err);
   }

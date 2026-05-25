@@ -456,28 +456,33 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
 
                           <div 
                             onClick={() => msg.pollResponses?.length > 0 && setShowPolledUsersModal(msg)}
-                            className={`flex items-center gap-3 mt-1 pt-4 border-t border-slate-200/50 dark:border-slate-700/50 rounded-lg p-2 -mx-2 transition-colors ${msg.pollResponses?.length > 0 ? 'cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-800/30' : ''}`}
+                            className={`flex items-center justify-between gap-3 mt-1 pt-4 border-t border-slate-200/50 dark:border-slate-700/50 rounded-lg p-2 -mx-2 transition-colors group ${msg.pollResponses?.length > 0 ? 'cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-800/30' : ''}`}
                           >
-                            <div className="flex -space-x-2 overflow-hidden shrink-0">
-                              {(msg.pollResponses || []).slice(0, 3).map((res, i) => (
-                                <div key={i} className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-sm" title={res.name}>
-                                  {res.photo ? <img src={res.photo} alt={res.name} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-slate-500">{res.name?.charAt(0)?.toUpperCase()}</span>}
-                                </div>
-                              ))}
-                              {msg.pollResponses?.length > 3 && (
-                                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-800 flex items-center justify-center shrink-0 shadow-sm z-10">
-                                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">+{msg.pollResponses.length - 3}</span>
-                                </div>
-                              )}
-                              {(!msg.pollResponses || msg.pollResponses.length === 0) && (
-                                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-800 flex items-center justify-center shrink-0 shadow-sm border-dashed">
-                                  <Trophy className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                                </div>
-                              )}
+                            <div className="flex items-center gap-3">
+                              <div className="flex -space-x-2 overflow-hidden shrink-0">
+                                {(msg.pollResponses || []).slice(0, 3).map((res, i) => (
+                                  <div key={i} className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-sm" title={res.name}>
+                                    {res.photo ? <img src={res.photo} alt={res.name} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-slate-500">{res.name?.charAt(0)?.toUpperCase()}</span>}
+                                  </div>
+                                ))}
+                                {msg.pollResponses?.length > 3 && (
+                                  <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-800 flex items-center justify-center shrink-0 shadow-sm z-10">
+                                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">+{msg.pollResponses.length - 3}</span>
+                                  </div>
+                                )}
+                                {(!msg.pollResponses || msg.pollResponses.length === 0) && (
+                                  <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-800 flex items-center justify-center shrink-0 shadow-sm border-dashed">
+                                    <Trophy className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                                {msg.pollResponses?.length || 0} {(msg.pollResponses?.length === 1) ? 'person' : 'persons'} completed
+                              </span>
                             </div>
-                            <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-                              {msg.pollResponses?.length || 0} {(msg.pollResponses?.length === 1) ? 'person' : 'persons'} completed
-                            </span>
+                            {msg.pollResponses?.length > 0 && (
+                              <span className="text-xs font-bold text-indigo-500 dark:text-indigo-400 opacity-80 group-hover:opacity-100 transition-opacity">View</span>
+                            )}
                           </div>
                         </div>
                       ) : msg.isDeleted ? (
@@ -622,13 +627,16 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, pe
             
             <div className="overflow-y-auto max-h-[60vh] p-4 flex flex-col gap-3">
               {showPolledUsersModal.pollResponses?.map((res, i) => (
-                <div key={i} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors">
-                  <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0 shadow-sm" title={res.name}>
+                <div 
+                  key={i} 
+                  onClick={() => { setShowPolledUsersModal(null); navigate(`/dashboard/profile/${res.uid}`); }}
+                  className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors cursor-pointer group"
+                >
+                  <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0 shadow-sm group-hover:ring-2 ring-indigo-500/50 transition-all" title={res.name}>
                     {res.photo ? <img src={res.photo} alt={res.name} className="w-full h-full object-cover" /> : <span className="text-sm font-bold text-slate-500 w-full h-full flex items-center justify-center">{res.name?.charAt(0)?.toUpperCase()}</span>}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{res.name}</span>
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{res.batch || "Unknown Batch"}</span>
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{res.name}</span>
                   </div>
                 </div>
               ))}

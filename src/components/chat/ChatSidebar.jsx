@@ -1,5 +1,6 @@
+import { useState, useEffect } from "react";
 import { Users, Hash, LogOut, MessageSquarePlus, Globe, Bell, BellOff, User, Code2 } from "lucide-react";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, collection, query, onSnapshot, where, getDocs, limit } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import toast from "react-hot-toast";
 
@@ -13,6 +14,52 @@ export default function ChatSidebar({
   peerProfiles = {},
   onCreateRoom
 }) {
+  const [unreadCounts, setUnreadCounts] = useState({});
+
+  useEffect(() => {
+    if (!userId) return;
+    
+    // Subscribe to unread chat notifications to calculate room badges
+    const notifsRef = collection(db, "users", userId, "notifications");
+    const q = query(
+        notifsRef, 
+        where("unread", "==", true),
+        where("type", "==", "chat")
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const counts = {};
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.roomId) {
+                counts[data.roomId] = (counts[data.roomId] || 0) + 1;
+            }
+        });
+        setUnreadCounts(counts);
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
+
+  // Self-healing: check legacy private rooms and set hasMessages
+  useEffect(() => {
+    const checkLegacyPrivateRooms = async () => {
+      const legacyRooms = rooms.filter(r => r.type === 'private' && typeof r.hasMessages === 'undefined');
+      for (const r of legacyRooms) {
+        try {
+          const q = query(collection(db, "chatRooms", r.id, "messages"), limit(1));
+          const snap = await getDocs(q);
+          const roomRef = doc(db, "chatRooms", r.id);
+          await updateDoc(roomRef, { hasMessages: !snap.empty });
+        } catch (err) {
+          console.error("Error healing room:", err);
+        }
+      }
+    };
+    if (rooms.length > 0) {
+      checkLegacyPrivateRooms();
+    }
+  }, [rooms]);
 
   const handleToggleMute = async (e, roomId) => {
     e.stopPropagation();
@@ -76,7 +123,16 @@ export default function ChatSidebar({
   // Separate into global, 1qad, joined, and discover
   const globalRoom = rooms.find(r => r.type === 'global');
   const qadRoom = rooms.find(r => r.type === '1qad');
-  const joinedRooms = rooms.filter(r => (r.type === 'group' || r.type === 'private') && r.members?.includes(userId));
+  
+  const joinedRooms = rooms.filter(r => {
+    if (!r.members?.includes(userId)) return false;
+    if (r.type === 'private') {
+       if (r.id === activeRoomId) return true;
+       if (r.hasMessages === false) return false;
+    }
+    return r.type === 'group' || r.type === 'private';
+  });
+  
   const discoverRooms = rooms.filter(r => r.type === 'group' && !r.members?.includes(userId));
 
   return (
@@ -182,18 +238,25 @@ export default function ChatSidebar({
                   <span className="truncate">{getRoomName(room)}</span>
                 </div>
 
-                <button
-                  onClick={(e) => handleToggleMute(e, room.id)}
-                  className={`p-1 rounded-md opacity-0 group-hover/item:opacity-100 transition-all hover:bg-white dark:hover:bg-slate-700 ${userProfile?.mutedChats?.[room.id] ? "text-amber-500 opacity-100" : "text-slate-400"
-                    }`}
-                  title={userProfile?.mutedChats?.[room.id] ? "Unmute" : "Mute"}
-                >
-                  {userProfile?.mutedChats?.[room.id] ? (
-                    <BellOff className="w-3.5 h-3.5" />
-                  ) : (
-                    <Bell className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {unreadCounts[room.id] > 0 && activeRoomId !== room.id && (
+                    <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-white bg-rose-500 rounded-full shadow-sm">
+                      {unreadCounts[room.id] > 99 ? '99+' : unreadCounts[room.id]}
+                    </span>
                   )}
-                </button>
+                  <button
+                    onClick={(e) => handleToggleMute(e, room.id)}
+                    className={`p-1 rounded-md opacity-0 group-hover/item:opacity-100 transition-all hover:bg-white dark:hover:bg-slate-700 ${userProfile?.mutedChats?.[room.id] ? "text-amber-500 opacity-100" : "text-slate-400"
+                      }`}
+                    title={userProfile?.mutedChats?.[room.id] ? "Unmute" : "Mute"}
+                  >
+                    {userProfile?.mutedChats?.[room.id] ? (
+                      <BellOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Bell className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
