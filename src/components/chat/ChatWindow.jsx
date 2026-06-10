@@ -157,7 +157,10 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, us
         const batchName = groups && groups.length > 0 ? groups[0].name : "No Batch";
         
         const currentStreak = userProfile?.leetcodeStreak || 0;
-        const newStreak = currentStreak + 1;
+        const lastSolveStr = userProfile?.lastLeetcodeSolve;
+        
+        const { calculateNewStreak } = await import("../../utils/streakUtils");
+        const { newStreak, isAlreadySolvedToday } = calculateNewStreak(currentStreak, lastSolveStr);
 
         const pollData = {
           uid: userId || "unknown",
@@ -172,11 +175,13 @@ export default function ChatWindow({ activeRoom, userId, userName, userPhoto, us
         });
 
         // Update user profile streak
-        const userRef = doc(db, "users", userId);
-        await updateDoc(userRef, {
-            leetcodeStreak: newStreak,
-            lastLeetcodeSolve: new Date().toISOString()
-        });
+        if (!isAlreadySolvedToday || currentStreak === 0) {
+            const userRef = doc(db, "users", userId);
+            await updateDoc(userRef, {
+                leetcodeStreak: newStreak,
+                lastLeetcodeSolve: new Date().toISOString()
+            });
+        }
 
         toast.success(`Verified! Streak: 🔥 ${newStreak}`);
       }
