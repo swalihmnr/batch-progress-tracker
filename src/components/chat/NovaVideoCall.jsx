@@ -4,7 +4,7 @@ import { X, Mic, MicOff, PhoneOff, Sparkles, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../firebase/firebaseConfig';
 import { doc, setDoc, increment } from 'firebase/firestore';
-import AvatarCSS from './AvatarCSS';
+import Avatar3D from './Avatar3D';
 
 export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
   const {
@@ -59,9 +59,9 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
   const renderActiveCall = () => (
     <div className="flex flex-col items-center justify-between h-full w-full p-6 relative overflow-hidden">
       
-      {/* Premium Full-Screen Background Avatar - Now Using CSS */}
+      {/* Premium Full-Screen Background Avatar */}
       <div className="absolute inset-0 z-0 bg-slate-900">
-        <AvatarCSS isSpeaking={status === 'speaking'} userAudioLevel={userAudioLevel} />
+        <Avatar3D isSpeaking={status === 'speaking'} userAudioLevel={userAudioLevel} />
         {/* Full-screen pulsing glow when user speaks */}
         {status === 'listening' && userAudioLevel > 10 && (
           <div className="absolute inset-0 bg-emerald-500/10 transition-all duration-75 z-10 pointer-events-none" style={{ opacity: Math.min(userAudioLevel / 100, 0.4) }}></div>
@@ -153,7 +153,7 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
             {/* Show Avatar even in error state so user can see it */}
             <div className="absolute inset-0 z-0 opacity-40 grayscale-[50%] pointer-events-none">
-              <AvatarCSS isSpeaking={false} userAudioLevel={0} />
+              <Avatar3D isSpeaking={false} userAudioLevel={0} />
             </div>
             <h3 className="text-2xl font-bold text-white mb-4">Browser Not Supported</h3>
             <p className="text-slate-400 mb-6 max-w-md">Your browser does not support the Web Speech API required for this feature. Please try Chrome or Edge.</p>
