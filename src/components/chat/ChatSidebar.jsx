@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Hash, LogOut, MessageSquarePlus, Globe, Bell, BellOff, User, Code2 } from "lucide-react";
+import { Users, Hash, LogOut, MessageSquarePlus, Globe, Bell, BellOff, User, Code2, Video } from "lucide-react";
 import { doc, updateDoc, collection, query, onSnapshot, where, getDocs, limit } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import toast from "react-hot-toast";
@@ -12,7 +12,8 @@ export default function ChatSidebar({
   userId,
   userProfile,
   peerProfiles = {},
-  onCreateRoom
+  onCreateRoom,
+  onOpenNovaCall
 }) {
   const [unreadCounts, setUnreadCounts] = useState({});
 
@@ -217,6 +218,18 @@ export default function ChatSidebar({
               </button>
             </div>
           )}
+          {/* Nova Video Call Button */}
+          <div
+            className="w-full group/item flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer mt-1 text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800"
+            onClick={onOpenNovaCall}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+                <Video className="w-4 h-4 text-indigo-500" />
+              </div>
+              <span className="truncate">Practice AI</span>
+            </div>
+          </div>
         </div>
 
         {/* Joined Chats */}

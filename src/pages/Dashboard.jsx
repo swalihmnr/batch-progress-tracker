@@ -282,17 +282,17 @@ function Dashboard() {
             // Allow logging one view per hour to build the time-series graph
             const lastVisit = sessionStorage.getItem(visitKey);
             const now = Date.now();
-            
+
             let lastVisitTime = 0;
             if (lastVisit === 'true') {
                 lastVisitTime = 0; // Force update if they have the old format
             } else if (lastVisit) {
                 lastVisitTime = parseInt(lastVisit) || 0;
             }
-            
+
             if (!lastVisit || (now - lastVisitTime) > 3600000) { // 1 hour cooldown
                 sessionStorage.setItem(visitKey, now.toString());
-                
+
                 // Add view event to subcollection for chart
                 addDoc(collection(db, 'groups', group.id, 'views'), {
                     userId: user.uid,

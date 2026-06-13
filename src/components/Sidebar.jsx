@@ -112,9 +112,11 @@ function Sidebar({ groupContext = {}, onClose }) {
               // Hide Chat if user has no batches (unless they are admin)
               if (item.hideIfNoGroups && (!groups || groups.length === 0) && !isAdmin) return null;
 
+
+
               // Fix active logic for query parameters
-              const urlPath = item.path.split('?')[0];
-              const urlQuery = item.path.split('?')[1] || '';
+              const urlPath = item.path ? item.path.split('?')[0] : '';
+              const urlQuery = item.path ? item.path.split('?')[1] || '' : '';
               const searchParams = new URLSearchParams(location.search);
               const targetParams = new URLSearchParams(urlQuery);
 
