@@ -253,6 +253,8 @@ import Leaderboard from "../components/Leaderboard";
 import KicksBoard from "../components/KicksBoard";
 import toast from "react-hot-toast";
 import ReminderModal from "../components/ReminderModal";
+import NovaRoadmap from "../components/chat/NovaRoadmap";
+import { Map } from "lucide-react";
 
 function Dashboard() {
     const { user, userProfile } = useAuth();
@@ -260,6 +262,7 @@ function Dashboard() {
     const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
 
     const [showForm, setShowForm] = useState(false);
+    const [showNovaRoadmap, setShowNovaRoadmap] = useState(false);
     const [showReminder, setShowReminder] = useState(false);
     const [formData, setFormData] = useState({
         moduleNo: "",
@@ -748,6 +751,14 @@ function Dashboard() {
                         </div>
                         {group && (
                             <div className="flex flex-col sm:flex-row gap-4 items-stretch md:items-center w-full md:w-auto mt-6 md:mt-0">
+                                <button 
+                                    onClick={() => setShowNovaRoadmap(true)}
+                                    className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold rounded-xl md:rounded-2xl shadow-lg shadow-violet-500/30 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 border border-violet-400/50 relative overflow-hidden group"
+                                >
+                                    <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.2)_50%,transparent_75%,transparent_100%)] bg-[length:250%_250%,100%_100%] bg-[position:200%_0,0_0] bg-no-repeat group-hover:bg-[position:-200%_0,0_0] transition-[background-position] duration-1000"></div>
+                                    <Map className="w-5 h-5 relative z-10" />
+                                    <span className="relative z-10">My Roadmap</span>
+                                </button>
                                 <button
                                     onClick={() => setShowForm(true)}
                                     className="px-4 sm:px-6 py-3 sm:py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl md:rounded-2xl shadow-lg shadow-indigo-600/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 border border-indigo-500"
@@ -766,6 +777,9 @@ function Dashboard() {
 
                 {group && (
                     <div className="space-y-8">
+                        {/* Nova Roadmap Modal */}
+                        <NovaRoadmap isOpen={showNovaRoadmap} onClose={() => setShowNovaRoadmap(false)} />
+
                         {/* Modal for Logging Progress */}
                         {showForm && (
                             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
