@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Sphere, MeshDistortMaterial, Float } from '@react-three/drei';
 import * as THREE from 'three';
@@ -82,17 +82,59 @@ const HumanAvatar = ({ isSpeaking, userAudioLevel }) => {
   const { scene } = useGLTF(AVATAR_URL);
   const avatarRef = useRef();
 
+  // Apply initial seated pose
+  useEffect(() => {
+    const leftArm = scene.getObjectByName('LeftArm');
+    const rightArm = scene.getObjectByName('RightArm');
+    const leftForeArm = scene.getObjectByName('LeftForeArm');
+    const rightForeArm = scene.getObjectByName('RightForeArm');
+    const leftShoulder = scene.getObjectByName('LeftShoulder');
+    const rightShoulder = scene.getObjectByName('RightShoulder');
+
+    // Convert from T-pose to relaxed seated pose
+    if (leftArm) {
+      leftArm.rotation.z = 1.3; // Bring arm down
+      leftArm.rotation.x = 0.2; // Move slightly forward
+    }
+    if (rightArm) {
+      rightArm.rotation.z = -1.3; // Bring arm down (mirrored)
+      rightArm.rotation.x = 0.2; 
+    }
+    if (leftForeArm) {
+      leftForeArm.rotation.x = 0.5; // Bend elbow
+      leftForeArm.rotation.y = 0.2; // Rest hands inward
+    }
+    if (rightForeArm) {
+      rightForeArm.rotation.x = 0.5;
+      rightForeArm.rotation.y = -0.2;
+    }
+    if (leftShoulder) leftShoulder.rotation.z = 0.1; // Relax shoulders down
+    if (rightShoulder) rightShoulder.rotation.z = -0.1;
+
+  }, [scene]);
+
   useFrame((state, delta) => {
     if (avatarRef.current) {
-      avatarRef.current.position.y = THREE.MathUtils.lerp(
-        avatarRef.current.position.y,
-        -1.5 + Math.sin(state.clock.elapsedTime * 2) * 0.05,
-        0.1
-      );
+      // Gentle floating idle animation has been removed to keep the avatar grounded like they are sitting.
+      // Instead, we add a subtle breathing animation to the spine/chest
+      const spine = scene.getObjectByName('Spine1') || scene.getObjectByName('Spine');
+      const neck = scene.getObjectByName('Neck');
 
-      const targetScale = 1.2 + (userAudioLevel / 200);
+      if (spine) {
+        // Subtle breathing (expanding/contracting)
+        const breathe = Math.sin(state.clock.elapsedTime * 2) * 0.02;
+        spine.rotation.x = breathe;
+      }
+      if (neck && isSpeaking) {
+        // Slight head bobs while speaking to feel natural
+        neck.rotation.x = Math.sin(state.clock.elapsedTime * 5) * 0.03;
+      }
+
+      // React to user speaking by scaling slightly or glowing (we keep it subtle for realism)
+      const targetScale = 1.3 + (userAudioLevel / 400);
       avatarRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
 
+      // Simulate lip sync when Nova speaks
       scene.traverse((child) => {
         if (child.isMesh && child.morphTargetDictionary) {
           const mouthOpenIdx = child.morphTargetDictionary['mouthOpen'] ?? child.morphTargetDictionary['viseme_O'];
@@ -123,7 +165,7 @@ const HumanAvatar = ({ isSpeaking, userAudioLevel }) => {
       ref={avatarRef}
       object={scene} 
       position={[0, -1.5, 0]} 
-      scale={1.2} 
+      scale={1.3} 
     />
   );
 };
@@ -155,9 +197,10 @@ export default function Avatar3D({ isSpeaking, userAudioLevel }) {
             enableZoom={false} 
             enablePan={false} 
             autoRotate 
-            autoRotateSpeed={1} 
-            minPolarAngle={Math.PI / 2.2} 
-            maxPolarAngle={Math.PI / 1.8} 
+            autoRotateSpeed={0.5} 
+            target={[0, 0.1, 0]}
+            minPolarAngle={Math.PI / 2.1} 
+            maxPolarAngle={Math.PI / 1.9} 
           />
         </Canvas>
       </AvatarErrorBoundary>
