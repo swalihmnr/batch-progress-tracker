@@ -91,50 +91,53 @@ const HumanAvatar = ({ isSpeaking, userAudioLevel }) => {
     const leftShoulder = scene.getObjectByName('LeftShoulder');
     const rightShoulder = scene.getObjectByName('RightShoulder');
 
-    // Convert from T-pose to relaxed seated pose
+    // Convert from T-pose to relaxed seated pose by ADDING to local rotation
     if (leftArm) {
-      leftArm.rotation.z = 1.3; // Bring arm down
-      leftArm.rotation.x = 0.2; // Move slightly forward
+      leftArm.rotation.z -= 1.2; // Bring arm down (Avaturn rigs usually use -Z or +Z for roll/pitch)
+      leftArm.rotation.x -= 0.2; // Move slightly forward
     }
     if (rightArm) {
-      rightArm.rotation.z = -1.3; // Bring arm down (mirrored)
-      rightArm.rotation.x = 0.2; 
+      rightArm.rotation.z += 1.2; // Bring arm down (mirrored)
+      rightArm.rotation.x -= 0.2; 
     }
     if (leftForeArm) {
-      leftForeArm.rotation.x = 0.5; // Bend elbow
-      leftForeArm.rotation.y = 0.2; // Rest hands inward
+      leftForeArm.rotation.x += 0.5; // Bend elbow
     }
     if (rightForeArm) {
-      rightForeArm.rotation.x = 0.5;
-      rightForeArm.rotation.y = -0.2;
+      rightForeArm.rotation.x += 0.5;
     }
-    if (leftShoulder) leftShoulder.rotation.z = 0.1; // Relax shoulders down
-    if (rightShoulder) rightShoulder.rotation.z = -0.1;
+    if (leftShoulder) leftShoulder.rotation.z -= 0.2; // Relax shoulders down
+    if (rightShoulder) rightShoulder.rotation.z += 0.2;
 
   }, [scene]);
 
   useFrame((state, delta) => {
     if (avatarRef.current) {
       // Remove audio scaling. Humans don't change size.
-      // Instead, we just let the spine breathe and neck bob.
+      // Instead, we just let the spine breathe and neck bob relative to their original rotations
       const spine = scene.getObjectByName('Spine1') || scene.getObjectByName('Spine');
       const neck = scene.getObjectByName('Neck');
-      const head = scene.getObjectByName('Head');
 
       if (spine) {
+        if (spine.userData.origRotX === undefined) spine.userData.origRotX = spine.rotation.x;
         // Subtle breathing
-        spine.rotation.x = Math.sin(state.clock.elapsedTime * 2) * 0.015;
+        spine.rotation.x = spine.userData.origRotX + Math.sin(state.clock.elapsedTime * 2) * 0.015;
       }
       
       if (neck) {
+        if (neck.userData.origRotX === undefined) {
+          neck.userData.origRotX = neck.rotation.x;
+          neck.userData.origRotY = neck.rotation.y;
+        }
+        
         if (isSpeaking) {
           // Slight natural head bobs while speaking
-          neck.rotation.x = Math.sin(state.clock.elapsedTime * 4) * 0.02;
-          neck.rotation.y = Math.sin(state.clock.elapsedTime * 2) * 0.01;
+          neck.rotation.x = neck.userData.origRotX + Math.sin(state.clock.elapsedTime * 4) * 0.02;
+          neck.rotation.y = neck.userData.origRotY + Math.sin(state.clock.elapsedTime * 2) * 0.01;
         } else {
           // Micro head movements when listening/idle
-          neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, Math.sin(state.clock.elapsedTime * 0.5) * 0.01, 0.1);
-          neck.rotation.y = THREE.MathUtils.lerp(neck.rotation.y, Math.sin(state.clock.elapsedTime * 0.3) * 0.02, 0.1);
+          neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, neck.userData.origRotX + Math.sin(state.clock.elapsedTime * 0.5) * 0.01, 0.1);
+          neck.rotation.y = THREE.MathUtils.lerp(neck.rotation.y, neck.userData.origRotY + Math.sin(state.clock.elapsedTime * 0.3) * 0.02, 0.1);
         }
       }
 
@@ -204,16 +207,16 @@ export default function Avatar3D({ isSpeaking, userAudioLevel }) {
             <OrbitControls enableZoom={false} enablePan={false} enableRotate={false} />
         </Canvas>
       }>
-        <Canvas shadows camera={{ position: [0, 0, 2.5], fov: 45 }}>
-          <fog attach="fog" args={['#0a0f1c', 2, 10]} />
+        <Canvas shadows camera={{ position: [0, 0, 1.2], fov: 40 }}>
+          <fog attach="fog" args={['#0a0f1c', 1, 5]} />
           
           {/* Cinematic 3-Point Lighting */}
-          <ambientLight intensity={0.4} color="#ffffff" />
+          <ambientLight intensity={0.6} color="#ffffff" />
           
           {/* Key Light (Front Right, casts shadow) */}
           <directionalLight 
-            position={[2, 3, 4]} 
-            intensity={1.5} 
+            position={[1, 1, 2]} 
+            intensity={2} 
             color="#ffffff" 
             castShadow 
             shadow-mapSize-width={1024} 
@@ -223,22 +226,22 @@ export default function Avatar3D({ isSpeaking, userAudioLevel }) {
           
           {/* Fill Light (Front Left, softer, slightly cool) */}
           <directionalLight 
-            position={[-3, 1, 3]} 
-            intensity={0.8} 
+            position={[-2, 0.5, 2]} 
+            intensity={1} 
             color="#a5b4fc" 
           />
           
           {/* Rim Light (Behind, creates glowing edge) */}
           <spotLight 
-            position={[0, 3, -4]} 
-            intensity={4} 
+            position={[0, 2, -2]} 
+            intensity={5} 
             color="#818cf8" 
-            angle={0.6}
+            angle={0.8}
             penumbra={0.5}
           />
 
           {/* Dynamic conversational glow from the "screen" */}
-          <pointLight position={[0, 1, 2]} intensity={isSpeaking ? 2 : 0} color="#c084fc" distance={4} />
+          <pointLight position={[0, -0.5, 1]} intensity={isSpeaking ? 3 : 0} color="#c084fc" distance={3} />
           
           <React.Suspense fallback={null}>
             <HumanAvatar isSpeaking={isSpeaking} userAudioLevel={userAudioLevel} />
@@ -249,7 +252,7 @@ export default function Avatar3D({ isSpeaking, userAudioLevel }) {
             enableZoom={false} 
             enablePan={false} 
             enableRotate={false}
-            target={[0, 0.2, 0]}
+            target={[0, 0.05, 0]}
           />
         </Canvas>
       </AvatarErrorBoundary>
