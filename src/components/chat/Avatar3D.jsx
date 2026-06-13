@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Sphere, MeshDistortMaterial, Float } from '@react-three/drei';
+import { OrbitControls, useGLTF, Sphere, MeshDistortMaterial, Float, useAnimations } from '@react-three/drei';
 import * as THREE from 'three';
 
 const AVATAR_URL = '/custom_avatar.glb';
@@ -79,37 +79,17 @@ const AICore = ({ isSpeaking, userAudioLevel }) => {
 };
 
 const HumanAvatar = ({ isSpeaking, userAudioLevel }) => {
-  const { scene } = useGLTF(AVATAR_URL);
+  const { scene, animations } = useGLTF(AVATAR_URL);
   const avatarRef = useRef();
+  const { actions } = useAnimations(animations, avatarRef);
 
-  // Apply initial seated pose
+  // Play the baked skeletal animation (idle)
   useEffect(() => {
-    const leftArm = scene.getObjectByName('LeftArm');
-    const rightArm = scene.getObjectByName('RightArm');
-    const leftForeArm = scene.getObjectByName('LeftForeArm');
-    const rightForeArm = scene.getObjectByName('RightForeArm');
-    const leftShoulder = scene.getObjectByName('LeftShoulder');
-    const rightShoulder = scene.getObjectByName('RightShoulder');
-
-    // Convert from T-pose to relaxed seated pose by ADDING to local rotation
-    if (leftArm) {
-      leftArm.rotation.z -= 1.2; // Bring arm down (Avaturn rigs usually use -Z or +Z for roll/pitch)
-      leftArm.rotation.x -= 0.2; // Move slightly forward
+    if (animations && animations.length > 0 && actions) {
+      const actionName = animations[0].name;
+      actions[actionName]?.reset().fadeIn(0.5).play();
     }
-    if (rightArm) {
-      rightArm.rotation.z += 1.2; // Bring arm down (mirrored)
-      rightArm.rotation.x -= 0.2; 
-    }
-    if (leftForeArm) {
-      leftForeArm.rotation.x += 0.5; // Bend elbow
-    }
-    if (rightForeArm) {
-      rightForeArm.rotation.x += 0.5;
-    }
-    if (leftShoulder) leftShoulder.rotation.z -= 0.2; // Relax shoulders down
-    if (rightShoulder) rightShoulder.rotation.z += 0.2;
-
-  }, [scene]);
+  }, [animations, actions]);
 
   useFrame((state, delta) => {
     if (avatarRef.current) {
