@@ -115,44 +115,65 @@ const HumanAvatar = ({ isSpeaking, userAudioLevel }) => {
 
   useFrame((state, delta) => {
     if (avatarRef.current) {
-      // Gentle floating idle animation has been removed to keep the avatar grounded like they are sitting.
-      // Instead, we add a subtle breathing animation to the spine/chest
+      // Remove audio scaling. Humans don't change size.
+      // Instead, we just let the spine breathe and neck bob.
       const spine = scene.getObjectByName('Spine1') || scene.getObjectByName('Spine');
       const neck = scene.getObjectByName('Neck');
+      const head = scene.getObjectByName('Head');
 
       if (spine) {
-        // Subtle breathing (expanding/contracting)
-        const breathe = Math.sin(state.clock.elapsedTime * 2) * 0.02;
-        spine.rotation.x = breathe;
+        // Subtle breathing
+        spine.rotation.x = Math.sin(state.clock.elapsedTime * 2) * 0.015;
       }
-      if (neck && isSpeaking) {
-        // Slight head bobs while speaking to feel natural
-        neck.rotation.x = Math.sin(state.clock.elapsedTime * 5) * 0.03;
+      
+      if (neck) {
+        if (isSpeaking) {
+          // Slight natural head bobs while speaking
+          neck.rotation.x = Math.sin(state.clock.elapsedTime * 4) * 0.02;
+          neck.rotation.y = Math.sin(state.clock.elapsedTime * 2) * 0.01;
+        } else {
+          // Micro head movements when listening/idle
+          neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, Math.sin(state.clock.elapsedTime * 0.5) * 0.01, 0.1);
+          neck.rotation.y = THREE.MathUtils.lerp(neck.rotation.y, Math.sin(state.clock.elapsedTime * 0.3) * 0.02, 0.1);
+        }
       }
 
-      // React to user speaking by scaling slightly or glowing (we keep it subtle for realism)
-      const targetScale = 1.3 + (userAudioLevel / 400);
-      avatarRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
-
-      // Simulate lip sync when Nova speaks
+      // Simulate lip sync and blinking
       scene.traverse((child) => {
-        if (child.isMesh && child.morphTargetDictionary) {
-          const mouthOpenIdx = child.morphTargetDictionary['mouthOpen'] ?? child.morphTargetDictionary['viseme_O'];
-          const jawOpenIdx = child.morphTargetDictionary['jawOpen'];
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
           
-          if (mouthOpenIdx !== undefined) {
-            if (isSpeaking) {
-              const talkSpeed = 20;
-              const openAmount = (Math.sin(state.clock.elapsedTime * talkSpeed) + 1) / 2;
-              child.morphTargetInfluences[mouthOpenIdx] = openAmount * 0.7;
-              if (jawOpenIdx !== undefined) {
-                  child.morphTargetInfluences[jawOpenIdx] = openAmount * 0.3;
+          if (child.morphTargetDictionary) {
+            // Lip sync
+            const mouthOpenIdx = child.morphTargetDictionary['mouthOpen'] ?? child.morphTargetDictionary['viseme_O'];
+            const jawOpenIdx = child.morphTargetDictionary['jawOpen'];
+            
+            if (mouthOpenIdx !== undefined) {
+              if (isSpeaking) {
+                const talkSpeed = 20;
+                const openAmount = (Math.sin(state.clock.elapsedTime * talkSpeed) + 1) / 2;
+                child.morphTargetInfluences[mouthOpenIdx] = openAmount * 0.6;
+                if (jawOpenIdx !== undefined) child.morphTargetInfluences[jawOpenIdx] = openAmount * 0.2;
+              } else {
+                child.morphTargetInfluences[mouthOpenIdx] = THREE.MathUtils.lerp(child.morphTargetInfluences[mouthOpenIdx], 0, 0.2);
+                if (jawOpenIdx !== undefined) child.morphTargetInfluences[jawOpenIdx] = THREE.MathUtils.lerp(child.morphTargetInfluences[jawOpenIdx], 0, 0.2);
               }
-            } else {
-              child.morphTargetInfluences[mouthOpenIdx] = THREE.MathUtils.lerp(child.morphTargetInfluences[mouthOpenIdx], 0, 0.2);
-              if (jawOpenIdx !== undefined) {
-                  child.morphTargetInfluences[jawOpenIdx] = THREE.MathUtils.lerp(child.morphTargetInfluences[jawOpenIdx], 0, 0.2);
+            }
+
+            // Blinking (every 4 seconds, lasts ~0.2s)
+            const blinkLeftIdx = child.morphTargetDictionary['eyeBlinkLeft'] ?? child.morphTargetDictionary['eyeBlink_L'];
+            const blinkRightIdx = child.morphTargetDictionary['eyeBlinkRight'] ?? child.morphTargetDictionary['eyeBlink_R'];
+            
+            if (blinkLeftIdx !== undefined || blinkRightIdx !== undefined) {
+              const blinkCycle = state.clock.elapsedTime % 4;
+              let blinkVal = 0;
+              if (blinkCycle > 3.8) {
+                // Smooth blink curve
+                blinkVal = Math.sin((blinkCycle - 3.8) * (Math.PI / 0.2));
               }
+              if (blinkLeftIdx !== undefined) child.morphTargetInfluences[blinkLeftIdx] = blinkVal;
+              if (blinkRightIdx !== undefined) child.morphTargetInfluences[blinkRightIdx] = blinkVal;
             }
           }
         }
@@ -164,15 +185,15 @@ const HumanAvatar = ({ isSpeaking, userAudioLevel }) => {
     <primitive 
       ref={avatarRef}
       object={scene} 
-      position={[0, -1.5, 0]} 
-      scale={1.3} 
+      position={[0, -1.6, 0]} 
+      scale={1.35} 
     />
   );
 };
 
 export default function Avatar3D({ isSpeaking, userAudioLevel }) {
   return (
-    <div className="w-full h-full bg-slate-900 overflow-hidden">
+    <div className="w-full h-full bg-[#0a0f1c] overflow-hidden">
       <AvatarErrorBoundary fallback={
         <Canvas camera={{ position: [0, 0, 3], fov: 50 }}>
             <ambientLight intensity={0.5} />
@@ -180,27 +201,55 @@ export default function Avatar3D({ isSpeaking, userAudioLevel }) {
             <directionalLight position={[-10, -10, -5]} intensity={0.5} color="#4f46e5" />
             <pointLight position={[0, 0, 0]} intensity={isSpeaking ? 2 : 0} color="#a855f7" />
             <AICore isSpeaking={isSpeaking} userAudioLevel={userAudioLevel} />
-            <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={1.5} />
+            <OrbitControls enableZoom={false} enablePan={false} enableRotate={false} />
         </Canvas>
       }>
-        <Canvas camera={{ position: [0, 0, 3], fov: 50 }}>
-          <ambientLight intensity={1.5} />
-          <directionalLight position={[0, 5, 5]} intensity={2.5} />
-          <directionalLight position={[-5, 5, -5]} intensity={1} color="#4f46e5" />
-          <pointLight position={[0, 1.5, 2]} intensity={isSpeaking ? 5 : 0} color="#a855f7" distance={5} />
+        <Canvas shadows camera={{ position: [0, 0, 2.5], fov: 45 }}>
+          <fog attach="fog" args={['#0a0f1c', 2, 10]} />
+          
+          {/* Cinematic 3-Point Lighting */}
+          <ambientLight intensity={0.4} color="#ffffff" />
+          
+          {/* Key Light (Front Right, casts shadow) */}
+          <directionalLight 
+            position={[2, 3, 4]} 
+            intensity={1.5} 
+            color="#ffffff" 
+            castShadow 
+            shadow-mapSize-width={1024} 
+            shadow-mapSize-height={1024} 
+            shadow-bias={-0.0001}
+          />
+          
+          {/* Fill Light (Front Left, softer, slightly cool) */}
+          <directionalLight 
+            position={[-3, 1, 3]} 
+            intensity={0.8} 
+            color="#a5b4fc" 
+          />
+          
+          {/* Rim Light (Behind, creates glowing edge) */}
+          <spotLight 
+            position={[0, 3, -4]} 
+            intensity={4} 
+            color="#818cf8" 
+            angle={0.6}
+            penumbra={0.5}
+          />
+
+          {/* Dynamic conversational glow from the "screen" */}
+          <pointLight position={[0, 1, 2]} intensity={isSpeaking ? 2 : 0} color="#c084fc" distance={4} />
           
           <React.Suspense fallback={null}>
             <HumanAvatar isSpeaking={isSpeaking} userAudioLevel={userAudioLevel} />
           </React.Suspense>
           
+          {/* Lock camera completely to act as a fixed webcam */}
           <OrbitControls 
             enableZoom={false} 
             enablePan={false} 
-            autoRotate 
-            autoRotateSpeed={0.5} 
-            target={[0, 0.1, 0]}
-            minPolarAngle={Math.PI / 2.1} 
-            maxPolarAngle={Math.PI / 1.9} 
+            enableRotate={false}
+            target={[0, 0.2, 0]}
           />
         </Canvas>
       </AvatarErrorBoundary>
