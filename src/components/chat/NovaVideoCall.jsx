@@ -153,7 +153,7 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
             {/* Show Avatar even in error state so user can see it */}
             <div className="absolute inset-0 z-0 opacity-40 grayscale-[50%] pointer-events-none">
-              <Avatar3D isSpeaking={false} userAudioLevel={0} />
+              <AvatarCSS isSpeaking={false} userAudioLevel={0} />
             </div>
             <h3 className="text-2xl font-bold text-white mb-4">Browser Not Supported</h3>
             <p className="text-slate-400 mb-6 max-w-md">Your browser does not support the Web Speech API required for this feature. Please try Chrome or Edge.</p>
