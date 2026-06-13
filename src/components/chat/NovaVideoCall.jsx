@@ -4,7 +4,7 @@ import { X, Mic, MicOff, PhoneOff, Sparkles, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../firebase/firebaseConfig';
 import { doc, setDoc, increment } from 'firebase/firestore';
-import Avatar3D from './Avatar3D';
+import AvatarCSS from './AvatarCSS';
 
 export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
   const {
@@ -59,8 +59,9 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
   const renderActiveCall = () => (
     <div className="flex flex-col items-center justify-between h-full w-full p-6 relative overflow-hidden">
       
-      {/* 3D Avatar Background */}
+      {/* Premium Full-Screen Background Avatar - Now Using CSS */}
       <div className="absolute inset-0 z-0 bg-slate-900">
+        <AvatarCSS isSpeaking={status === 'speaking'} userAudioLevel={userAudioLevel} />
         {/* Full-screen pulsing glow when user speaks */}
         {status === 'listening' && userAudioLevel > 10 && (
           <div className="absolute inset-0 bg-emerald-500/10 transition-all duration-75 z-10 pointer-events-none" style={{ opacity: Math.min(userAudioLevel / 100, 0.4) }}></div>
