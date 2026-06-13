@@ -97,6 +97,7 @@ const HumanAvatar = ({ isSpeaking, userAudioLevel }) => {
       // Instead, we just let the spine breathe and neck bob relative to their original rotations
       const spine = scene.getObjectByName('Spine1') || scene.getObjectByName('Spine');
       const neck = scene.getObjectByName('Neck');
+      const head = scene.getObjectByName('Head');
 
       if (spine) {
         if (spine.userData.origRotX === undefined) spine.userData.origRotX = spine.rotation.x;
@@ -111,13 +112,27 @@ const HumanAvatar = ({ isSpeaking, userAudioLevel }) => {
         }
         
         if (isSpeaking) {
-          // Slight natural head bobs while speaking
-          neck.rotation.x = neck.userData.origRotX + Math.sin(state.clock.elapsedTime * 4) * 0.02;
-          neck.rotation.y = neck.userData.origRotY + Math.sin(state.clock.elapsedTime * 2) * 0.01;
+          // Exaggerated head bobs while speaking to compensate for lack of lip sync
+          neck.rotation.x = neck.userData.origRotX + Math.sin(state.clock.elapsedTime * 8) * 0.03;
+          neck.rotation.y = neck.userData.origRotY + Math.sin(state.clock.elapsedTime * 4) * 0.015;
         } else {
           // Micro head movements when listening/idle
           neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, neck.userData.origRotX + Math.sin(state.clock.elapsedTime * 0.5) * 0.01, 0.1);
           neck.rotation.y = THREE.MathUtils.lerp(neck.rotation.y, neck.userData.origRotY + Math.sin(state.clock.elapsedTime * 0.3) * 0.02, 0.1);
+        }
+      }
+
+      if (head) {
+        if (isSpeaking) {
+          // FAKE LIP SYNC: Because this model has zero blendshapes and no jaw bone,
+          // we rapidly squish and stretch the head bone by 1% to simulate a moving jaw.
+          // This is a visual hack to satisfy the requirement on a static mesh.
+          const squish = Math.sin(state.clock.elapsedTime * 25) * 0.01;
+          head.scale.y = 1 + squish;
+          head.scale.x = 1 - (squish / 2);
+          head.scale.z = 1 - (squish / 2);
+        } else {
+          head.scale.set(1, 1, 1);
         }
       }
 
