@@ -4,7 +4,6 @@ import { X, Mic, MicOff, PhoneOff, Sparkles, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../firebase/firebaseConfig';
 import { doc, setDoc, increment } from 'firebase/firestore';
-import Avatar3D from './Avatar3D';
 
 export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
   const {
@@ -59,17 +58,42 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
   const renderActiveCall = () => (
     <div className="flex flex-col items-center justify-between h-full w-full p-6 relative overflow-hidden">
       
-      {/* Premium Full-Screen Background Avatar */}
-      <div className="absolute inset-0 z-0 bg-slate-900">
-        <Avatar3D isSpeaking={status === 'speaking'} userAudioLevel={userAudioLevel} />
-        {/* Full-screen pulsing glow when user speaks */}
-        {status === 'listening' && userAudioLevel > 10 && (
-          <div className="absolute inset-0 bg-emerald-500/10 transition-all duration-75 z-10 pointer-events-none" style={{ opacity: Math.min(userAudioLevel / 100, 0.4) }}></div>
-        )}
-        {/* Full-screen glow when Nova speaks */}
-        {status === 'speaking' && (
-          <div className="absolute inset-0 bg-indigo-500/10 animate-pulse z-10 pointer-events-none"></div>
-        )}
+      {/* Premium Minimalist Voice UI */}
+      <div className="absolute inset-0 z-0 bg-[#0a0f1c] flex items-center justify-center overflow-hidden">
+        {/* Core AI Orb */}
+        <div className="relative flex items-center justify-center w-64 h-64">
+          {/* Base ambient glow */}
+          <div className="absolute inset-0 bg-indigo-600/20 blur-[100px] rounded-full"></div>
+          
+          {/* Audio reactive rings */}
+          {status === 'listening' || status === 'speaking' ? (
+            <>
+              {/* Outer reactive ring */}
+              <div 
+                className="absolute inset-0 bg-gradient-to-tr from-indigo-500/40 to-purple-500/40 rounded-full blur-2xl transition-all duration-75 ease-out"
+                style={{ 
+                  transform: `scale(${1 + (userAudioLevel / 50)})`,
+                  opacity: 0.3 + (userAudioLevel / 100)
+                }}
+              ></div>
+              
+              {/* Inner intense core */}
+              <div 
+                className={`absolute w-32 h-32 rounded-full blur-xl transition-all duration-100 ease-out ${status === 'speaking' ? 'bg-indigo-400/80 animate-pulse' : 'bg-emerald-400/60'}`}
+                style={{ 
+                  transform: `scale(${1 + (userAudioLevel / 100)})` 
+                }}
+              ></div>
+            </>
+          ) : (
+            <div className="absolute w-32 h-32 bg-slate-700/30 rounded-full blur-xl animate-pulse"></div>
+          )}
+
+          {/* Center node */}
+          <div className={`relative w-16 h-16 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)] flex items-center justify-center backdrop-blur-md border ${status === 'speaking' ? 'bg-indigo-500/20 border-indigo-400/50' : status === 'listening' ? 'bg-emerald-500/20 border-emerald-400/50' : 'bg-slate-800/50 border-slate-700'}`}>
+             <Sparkles className={`w-6 h-6 ${status === 'speaking' ? 'text-indigo-300' : status === 'listening' ? 'text-emerald-300' : 'text-slate-500'}`} />
+          </div>
+        </div>
       </div>
 
       {/* Timer */}
@@ -151,9 +175,9 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
       <div className="relative w-full h-full max-w-5xl max-h-[800px] bg-slate-900/80 border border-slate-700/50 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
         {hasError ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            {/* Show Avatar even in error state so user can see it */}
-            <div className="absolute inset-0 z-0 opacity-40 grayscale-[50%] pointer-events-none">
-              <Avatar3D isSpeaking={false} userAudioLevel={0} />
+            {/* Background ambient glow for error state */}
+            <div className="absolute inset-0 z-0 bg-[#0a0f1c] flex items-center justify-center">
+                <div className="w-96 h-96 bg-rose-500/5 blur-[120px] rounded-full"></div>
             </div>
             <h3 className="text-2xl font-bold text-white mb-4">Browser Not Supported</h3>
             <p className="text-slate-400 mb-6 max-w-md">Your browser does not support the Web Speech API required for this feature. Please try Chrome or Edge.</p>
