@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../firebase/firebaseConfig';
 import { doc, setDoc, getDoc, increment, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
-export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
+export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId, isExamMode = false, isInterviewMode = false, interviewStack = '' }) {
   const {
     isActive,
     timeLeft,
@@ -18,7 +18,7 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
     startCall,
     endCall,
     toggleMute
-  } = useNovaCall();
+  } = useNovaCall({ isExamMode, isInterviewMode, interviewStack });
 
   const [callsLeft, setCallsLeft] = useState(null);
   const DAILY_LIMIT = 9999; // Set back to 3 for production
@@ -85,6 +85,8 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
             score: summary.score,
             feedback: summary.feedback,
             pointsEarned: summary.pointsEarned,
+            level: summary.level,
+            roadmap: summary.roadmap,
             createdAt: serverTimestamp()
           });
         } catch (err) {
@@ -161,8 +163,8 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId }) {
       </div>
 
       <div className="absolute top-6 left-6 flex flex-col gap-2 z-20">
-        <div className="text-white/50 text-sm font-medium uppercase tracking-widest bg-slate-900/40 px-3 py-1 rounded-lg backdrop-blur-md">
-          Nova Call Session
+        <div className={`text-white/50 text-sm font-medium uppercase tracking-widest px-3 py-1 rounded-lg backdrop-blur-md ${isExamMode ? 'bg-indigo-900/60 border border-indigo-500/30 text-indigo-200' : isInterviewMode ? 'bg-emerald-900/60 border border-emerald-500/30 text-emerald-200' : 'bg-slate-900/40'}`}>
+          {isExamMode ? 'Nova Placement Exam' : isInterviewMode ? `${interviewStack} Mock Interview` : 'Nova Call Session'}
         </div>
         {callsLeft !== null && (
           <div className="text-amber-300 text-xs font-bold uppercase tracking-widest bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-lg backdrop-blur-md shadow-lg flex items-center gap-2 w-fit">

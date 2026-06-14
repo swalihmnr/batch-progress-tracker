@@ -3,7 +3,7 @@ import { NovaCallSession } from '../utils/aiCallService';
 
 const CALL_DURATION_SECONDS = 120; // 2 minutes
 
-export function useNovaCall() {
+export function useNovaCall({ isExamMode = false, isInterviewMode = false, interviewStack = '' } = {}) {
   const [isActive, setIsActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(CALL_DURATION_SECONDS);
   const [status, setStatus] = useState('idle'); // idle, listening, speaking, processing, complete
@@ -183,10 +183,16 @@ export function useNovaCall() {
     // Immediately update ref so synchronous calls know we are active
     stateRef.current = { ...stateRef.current, isActive: true, isMuted: false, timeLeft: CALL_DURATION_SECONDS };
     
-    sessionRef.current = new NovaCallSession();
+    sessionRef.current = new NovaCallSession({ isExamMode, isInterviewMode, interviewStack });
     
     // Start initial greeting
-    speakResponse("Hi! I'm Nova. We have two minutes to practice your English. What would you like to talk about today?");
+    if (isExamMode) {
+      speakResponse("Welcome to your English placement exam. Let's begin. Could you please introduce yourself and tell me why you are learning English?");
+    } else if (isInterviewMode && interviewStack) {
+      speakResponse(`Hello. I will be your technical interviewer today for the ${interviewStack} role. Could you start by introducing yourself and your experience with this stack?`);
+    } else {
+      speakResponse("Hi! I'm Nova. We have two minutes to practice your English. What would you like to talk about today?");
+    }
 
     // Start Timer
     timerRef.current = setInterval(() => {

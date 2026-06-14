@@ -16,6 +16,7 @@ import { db } from "../firebase/firebaseConfig";
 import ChatSidebar from "../components/chat/ChatSidebar";
 import ChatWindow from "../components/chat/ChatWindow";
 import NovaVideoCall from "../components/chat/NovaVideoCall";
+import NovaSetupModal from "../components/chat/NovaSetupModal";
 import toast from "react-hot-toast";
 import { X, Loader2 } from "lucide-react";
 
@@ -42,7 +43,9 @@ export default function Chat() {
   const [creatingGroup, setCreatingGroup] = useState(false);
   
   // Nova Call State
+  const [showNovaSetup, setShowNovaSetup] = useState(false);
   const [isNovaCallOpen, setIsNovaCallOpen] = useState(false);
+  const [novaCallConfig, setNovaCallConfig] = useState({ mode: 'practice', stack: '' });
 
   const activeRoomIdRef = React.useRef(activeRoomId);
 
@@ -231,7 +234,7 @@ export default function Chat() {
           userProfile={userProfile}
           peerProfiles={peerProfiles}
           onCreateRoom={() => setShowCreateModal(true)}
-          onOpenNovaCall={() => setIsNovaCallOpen(true)}
+          onOpenNovaCall={() => setShowNovaSetup(true)}
         />
       </div>
 
@@ -255,6 +258,19 @@ export default function Chat() {
         onClose={() => setIsNovaCallOpen(false)} 
         activeRoom={activeRoom}
         userId={user?.uid}
+        isExamMode={false}
+        isInterviewMode={novaCallConfig.mode === 'interview'}
+        interviewStack={novaCallConfig.stack}
+      />
+
+      <NovaSetupModal
+        isOpen={showNovaSetup}
+        onClose={() => setShowNovaSetup(false)}
+        onStart={(config) => {
+            setNovaCallConfig(config);
+            setShowNovaSetup(false);
+            setIsNovaCallOpen(true);
+        }}
       />
 
       {showCreateModal && (
