@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { NovaCallSession } from '../utils/aiCallService';
 
-const CALL_DURATION_SECONDS = 120; // 2 minutes
-
-export function useNovaCall({ isExamMode = false, isInterviewMode = false, interviewStack = '' } = {}) {
+export function useNovaCall({ isExamMode = false, isInterviewMode = false, interviewStack = '', interviewTopic = '' } = {}) {
   const [isActive, setIsActive] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(CALL_DURATION_SECONDS);
+  const [timeLeft, setTimeLeft] = useState(0); // Will now count UP for duration tracking
   const [status, setStatus] = useState('idle'); // idle, listening, speaking, processing, complete
   const [transcript, setTranscript] = useState('');
   const [summary, setSummary] = useState(null);
@@ -17,6 +15,7 @@ export function useNovaCall({ isExamMode = false, isInterviewMode = false, inter
   const synthesisRef = useRef(window.speechSynthesis);
   const sessionRef = useRef(null);
   const timerRef = useRef(null);
+  const speechTimeoutRef = useRef(null); // Used for debounce
   
   // Audio Context refs for visualizer
   const audioContextRef = useRef(null);
@@ -42,7 +41,7 @@ export function useNovaCall({ isExamMode = false, isInterviewMode = false, inter
     recognitionRef.current = new SpeechRecognition();
     recognitionRef.current.continuous = false;
     recognitionRef.current.interimResults = true;
-    recognitionRef.current.lang = 'en-US';
+    recognitionRef.current.lang = 'en-IN'; // Indian English for better recognition
 
     recognitionRef.current.onstart = () => setStatus('listening');
     
@@ -58,7 +57,14 @@ export function useNovaCall({ isExamMode = false, isInterviewMode = false, inter
       }
       if (finalTranscript) {
         setTranscript(finalTranscript);
-        handleUserSpeech(finalTranscript);
+        
+        // Debounce: Wait 2 seconds of silence before assuming they are done speaking
+        if (speechTimeoutRef.current) {
+          clearTimeout(speechTimeoutRef.current);
+        }
+        speechTimeoutRef.current = setTimeout(() => {
+          handleUserSpeech(finalTranscript);
+        }, 4000);
       }
     };
 
@@ -85,6 +91,7 @@ export function useNovaCall({ isExamMode = false, isInterviewMode = false, inter
     return () => {
       if (recognitionRef.current) recognitionRef.current.abort();
       if (timerRef.current) clearInterval(timerRef.current);
+      if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
       synthesisRef.current.cancel();
       stopAudioVisualizer();
     };
@@ -137,14 +144,21 @@ export function useNovaCall({ isExamMode = false, isInterviewMode = false, inter
     if (!sessionRef.current || status === 'speaking' || status === 'processing') return;
     
     setStatus('processing');
+    if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
     if (recognitionRef.current) recognitionRef.current.abort(); // Stop listening while processing
 
-    const aiResponse = await sessionRef.current.sendMessage(text);
+    let aiResponse = await sessionRef.current.sendMessage(text);
     
-    speakResponse(aiResponse);
+    let shouldEndCall = false;
+    if (aiResponse.includes('[END_CALL]')) {
+      shouldEndCall = true;
+      aiResponse = aiResponse.replace(/\[END_CALL\]/g, '').trim();
+    }
+    
+    speakResponse(aiResponse, shouldEndCall);
   };
 
-  const speakResponse = (text) => {
+  const speakResponse = (text, shouldEndCall = false) => {
     if (synthesisRef.current.speaking) {
       synthesisRef.current.cancel();
     }
@@ -152,16 +166,22 @@ export function useNovaCall({ isExamMode = false, isInterviewMode = false, inter
     const utterance = new SpeechSynthesisUtterance(text);
     // Try to find a good English voice
     const voices = synthesisRef.current.getVoices();
-    const preferredVoice = voices.find(v => v.lang.startsWith('en-') && (v.name.includes('Female') || v.name.includes('Google'))) || voices.find(v => v.lang.startsWith('en-'));
+    const preferredVoice = 
+      voices.find(v => v.lang === 'en-IN' && (v.name.includes('Female') || v.name.includes('Google'))) || 
+      voices.find(v => v.lang === 'en-IN') ||
+      voices.find(v => v.lang.startsWith('en-') && (v.name.includes('Female') || v.name.includes('Google'))) || 
+      voices.find(v => v.lang.startsWith('en-'));
     if (preferredVoice) utterance.voice = preferredVoice;
     
-    utterance.rate = 1.0;
+    utterance.rate = 0.9; // Slower rate for beginners
     utterance.pitch = 1.1;
 
     utterance.onstart = () => setStatus('speaking');
     utterance.onend = () => {
       const current = stateRef.current;
-      if (current.isActive && !current.isMuted && current.timeLeft > 0) {
+      if (shouldEndCall) {
+        endCall();
+      } else if (current.isActive && !current.isMuted) {
         setStatus('listening');
         try { recognitionRef.current.start(); } catch(e) {}
       } else {
@@ -175,44 +195,43 @@ export function useNovaCall({ isExamMode = false, isInterviewMode = false, inter
   const startCall = useCallback(() => {
     if (hasError) return;
     setIsActive(true);
-    setTimeLeft(CALL_DURATION_SECONDS);
+    setTimeLeft(0);
     setSummary(null);
     setTranscript('');
     setIsMuted(false);
     
     // Immediately update ref so synchronous calls know we are active
-    stateRef.current = { ...stateRef.current, isActive: true, isMuted: false, timeLeft: CALL_DURATION_SECONDS };
+    stateRef.current = { ...stateRef.current, isActive: true, isMuted: false, timeLeft: 0 };
     
-    sessionRef.current = new NovaCallSession({ isExamMode, isInterviewMode, interviewStack });
+    sessionRef.current = new NovaCallSession({ isExamMode, isInterviewMode, interviewStack, interviewTopic });
     
     // Start initial greeting
     if (isExamMode) {
       speakResponse("Welcome to your English placement exam. Let's begin. Could you please introduce yourself and tell me why you are learning English?");
     } else if (isInterviewMode && interviewStack) {
-      speakResponse(`Hello. I will be your technical interviewer today for the ${interviewStack} role. Could you start by introducing yourself and your experience with this stack?`);
+      if (interviewTopic) {
+        speakResponse(`Hello. I will be your technical interviewer today for the ${interviewStack} role. We will focus specifically on ${interviewTopic}. Could you start by introducing yourself and your experience with this topic?`);
+      } else {
+        speakResponse(`Hello. I will be your technical interviewer today for the ${interviewStack} role. Could you start by introducing yourself and your experience with this stack?`);
+      }
     } else {
       speakResponse("Hi! I'm Nova. We have two minutes to practice your English. What would you like to talk about today?");
     }
 
-    // Start Timer
+    // Start Timer (counting up)
     timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          endCall();
-          return 0;
-        }
-        return prev - 1;
-      });
+      setTimeLeft((prev) => prev + 1);
     }, 1000);
     
     // Start mic volume visualizer
     startAudioVisualizer();
-  }, [hasError]);
+  }, [hasError, isExamMode, isInterviewMode, interviewStack, interviewTopic]);
 
   const endCall = useCallback(async () => {
     setIsActive(false);
     setStatus('complete');
     if (timerRef.current) clearInterval(timerRef.current);
+    if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
     if (recognitionRef.current) recognitionRef.current.abort();
     synthesisRef.current.cancel();
     stopAudioVisualizer();

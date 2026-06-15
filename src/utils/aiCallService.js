@@ -22,7 +22,7 @@ const systemInstruction = "You are Nova, a friendly, encouraging, and highly con
 const examSystemInstruction = "You are an official English Placement Examiner administering a 2-minute oral exam to a student. Your job is to assess their grammar, vocabulary, and fluency. Ask 3 progressively difficult questions one at a time. For example: first ask them to introduce themselves, then ask an opinion question, then a complex hypothetical. Do NOT correct them during the exam, just assess their answer and move to the next question. Keep your prompts extremely short (1-2 sentences) so the student has time to speak. Do not use complex formatting, emojis, or markdown.";
 
 export class NovaCallSession {
-  constructor({ isExamMode = false, isInterviewMode = false, interviewStack = '' } = {}) {
+  constructor({ isExamMode = false, isInterviewMode = false, interviewStack = '', interviewTopic = '' } = {}) {
     this.history = [];
     this.isExamMode = isExamMode;
     this.isInterviewMode = isInterviewMode;
@@ -31,7 +31,9 @@ export class NovaCallSession {
     if (isExamMode) {
       content = examSystemInstruction;
     } else if (isInterviewMode && interviewStack) {
-      content = `You are a strict, professional Senior Technical Recruiter. You are conducting a 2-minute oral technical screening interview for a candidate specializing in the ${interviewStack} stack. Ask 3 progressively difficult technical questions about ${interviewStack} one at a time. Do NOT correct them during the interview, just assess their answer and move to the next question. Keep your prompts extremely short (1-2 sentences). Your output will be read aloud by a Text-to-Speech engine. Evaluate their English communication skills AND their technical clarity.`;
+      let topicStr = interviewTopic ? ` specifically focusing on ${interviewTopic}` : '';
+      let targetQuestions = interviewTopic || interviewStack;
+      content = `You are a strict, professional Senior Technical Recruiter. You are conducting an oral technical screening interview for a candidate specializing in the ${interviewStack} stack${topicStr}. Ask practical, scenario-based technical questions about ${targetQuestions} one at a time (e.g. 'How would you design...', 'Walk me through how you would debug...'). Do NOT correct them during the interview, just assess their answer and move to the next question. Keep your prompts extremely short (1-2 sentences). Your output will be read aloud by a Text-to-Speech engine. Evaluate their English communication skills AND their technical clarity. If the user asks to stop, end the interview, or says goodbye, you MUST end your response with exactly '[END_CALL]'.`;
     }
     
     this.history.push({ role: 'system', content });
@@ -160,6 +162,9 @@ export class NovaCallSession {
           "(Actionable milestone 1 tailored to fix a specific weakness shown in the transcript)",
           "(Actionable milestone 2 tailored to fix a specific weakness shown in the transcript)",
           "(Actionable milestone 3 tailored to fix a specific weakness shown in the transcript)"
+        ],
+        "correctAnswers": [
+          { "question": "(Write out a technical question that was asked during the session)", "answer": "(Provide the correct, ideal technical answer to that question)" }
         ]
       }`;
 
@@ -191,7 +196,8 @@ export class NovaCallSession {
           "Practice basic vocabulary.",
           "Focus on clear pronunciation.",
           "Try to speak in full sentences."
-        ]
+        ],
+        correctAnswers: Array.isArray(parsed.correctAnswers) ? parsed.correctAnswers : []
       };
     } catch (error) {
       console.error("Error generating summary:", error);

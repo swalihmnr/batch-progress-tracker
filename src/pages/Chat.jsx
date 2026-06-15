@@ -45,7 +45,7 @@ export default function Chat() {
   // Nova Call State
   const [showNovaSetup, setShowNovaSetup] = useState(false);
   const [isNovaCallOpen, setIsNovaCallOpen] = useState(false);
-  const [novaCallConfig, setNovaCallConfig] = useState({ mode: 'practice', stack: '' });
+  const [novaCallConfig, setNovaCallConfig] = useState({ mode: 'practice', stack: '', topic: '' });
 
   const activeRoomIdRef = React.useRef(activeRoomId);
 
@@ -261,6 +261,7 @@ export default function Chat() {
         isExamMode={false}
         isInterviewMode={novaCallConfig.mode === 'interview'}
         interviewStack={novaCallConfig.stack}
+        interviewTopic={novaCallConfig.topic}
       />
 
       <NovaSetupModal

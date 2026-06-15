@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../firebase/firebaseConfig';
 import { doc, setDoc, getDoc, increment, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
-export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId, isExamMode = false, isInterviewMode = false, interviewStack = '' }) {
+export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId, isExamMode = false, isInterviewMode = false, interviewStack = '', interviewTopic = '' }) {
   const {
     isActive,
     timeLeft,
@@ -18,7 +18,7 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId, isE
     startCall,
     endCall,
     toggleMute
-  } = useNovaCall({ isExamMode, isInterviewMode, interviewStack });
+  } = useNovaCall({ isExamMode, isInterviewMode, interviewStack, interviewTopic });
 
   const [callsLeft, setCallsLeft] = useState(null);
   const DAILY_LIMIT = 9999; // Set back to 3 for production
@@ -89,6 +89,11 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId, isE
             roadmap: summary.roadmap,
             createdAt: serverTimestamp()
           });
+
+          // Store the current english level to user doc and local storage
+          const userRef = doc(db, "users", userId);
+          await setDoc(userRef, { novaLevel: summary.level }, { merge: true });
+          localStorage.setItem(`novaLevel_${userId}`, summary.level);
         } catch (err) {
           console.error("Failed to add point:", err);
         }
@@ -164,7 +169,7 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId, isE
 
       <div className="absolute top-6 left-6 flex flex-col gap-2 z-20">
         <div className={`text-white/50 text-sm font-medium uppercase tracking-widest px-3 py-1 rounded-lg backdrop-blur-md ${isExamMode ? 'bg-indigo-900/60 border border-indigo-500/30 text-indigo-200' : isInterviewMode ? 'bg-emerald-900/60 border border-emerald-500/30 text-emerald-200' : 'bg-slate-900/40'}`}>
-          {isExamMode ? 'Nova Placement Exam' : isInterviewMode ? `${interviewStack} Mock Interview` : 'Nova Call Session'}
+          {isExamMode ? 'Nova Placement Exam' : isInterviewMode ? `${interviewStack}${interviewTopic ? ` - ${interviewTopic}` : ''} Mock Interview` : 'Nova Call Session'}
         </div>
         {callsLeft !== null && (
           <div className="text-amber-300 text-xs font-bold uppercase tracking-widest bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-lg backdrop-blur-md shadow-lg flex items-center gap-2 w-fit">
@@ -217,21 +222,42 @@ export default function NovaVideoCall({ isOpen, onClose, activeRoom, userId, isE
       <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-indigo-400 to-emerald-400 my-6">
         {summary.score} <span className="text-2xl text-slate-400">/ 100</span>
       </div>
-      <p className="text-slate-300 text-lg max-w-lg mb-8 leading-relaxed">
-        {summary.feedback}
-      </p>
-      {summary.pointsEarned > 0 && (
-        <div className="mb-8 px-6 py-3 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-300 font-bold flex items-center gap-2">
-          <Sparkles className="w-5 h-5" />
-          You earned 1 English Kick point!
-        </div>
-      )}
-      <button
-        onClick={onClose}
-        className="px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-slate-200 transition-colors"
-      >
-        Close & Return to Chat
-      </button>
+      <div className="flex-1 w-full max-w-4xl overflow-y-auto custom-scrollbar px-2 pb-6 flex flex-col items-center">
+        <p className="text-slate-300 text-lg max-w-lg mb-8 leading-relaxed">
+          {summary.feedback}
+        </p>
+        
+        {summary.correctAnswers && summary.correctAnswers.length > 0 && (
+          <div className="w-full max-w-2xl bg-slate-800/50 rounded-2xl p-6 border border-slate-700 mb-8 text-left">
+            <h3 className="text-xl font-bold text-emerald-400 mb-4 flex items-center gap-2">
+              <Sparkles className="w-5 h-5" /> Recommended Technical Answers
+            </h3>
+            <div className="space-y-6">
+              {summary.correctAnswers.map((ca, idx) => (
+                <div key={idx} className="space-y-2">
+                  <p className="text-slate-300 font-semibold text-sm">Q: {ca.question}</p>
+                  <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 text-slate-400 text-sm leading-relaxed">
+                    A: {ca.answer}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {summary.pointsEarned > 0 && (
+          <div className="mb-8 px-6 py-3 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-300 font-bold flex items-center gap-2">
+            <Sparkles className="w-5 h-5" />
+            You earned 1 English Kick point!
+          </div>
+        )}
+        <button
+          onClick={onClose}
+          className="px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-slate-200 transition-colors shrink-0"
+        >
+          Close & Return to Chat
+        </button>
+      </div>
     </div>
   );
 

@@ -2,19 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { X, Mic, Code2, Sparkles, Briefcase, Lock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase/firebaseConfig';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function NovaSetupModal({ isOpen, onClose, onStart }) {
     const [mode, setMode] = useState('practice'); // 'practice' or 'interview'
     const [stack, setStack] = useState('');
+    const [topic, setTopic] = useState('');
     const [userLevel, setUserLevel] = useState(null);
     const [isLoadingLevel, setIsLoadingLevel] = useState(true);
-    const { user } = useAuth();
+    const { user, userProfile } = useAuth();
 
     useEffect(() => {
         if (isOpen && user?.uid) {
             const fetchUserLevel = async () => {
                 try {
+                    // Fast path: use real-time userProfile from AuthContext (synced with DB)
+                    if (userProfile?.novaLevel) {
+                        setUserLevel(userProfile.novaLevel);
+                        setIsLoadingLevel(false);
+                        return;
+                    }
+
+                    // Check local storage as a backup
+                    const cachedLevel = localStorage.getItem(`novaLevel_${user.uid}`);
+                    if (cachedLevel) {
+                        setUserLevel(cachedLevel);
+                        setIsLoadingLevel(false);
+                        return;
+                    }
+
+                    // Fallback to legacy history check for older users who haven't had their level stored on their user doc yet
                     const q = query(
                         collection(db, `users/${user.uid}/novaHistory`),
                         orderBy('createdAt', 'desc'),
@@ -22,7 +39,10 @@ export default function NovaSetupModal({ isOpen, onClose, onStart }) {
                     );
                     const snapshot = await getDocs(q);
                     if (!snapshot.empty) {
-                        setUserLevel(snapshot.docs[0].data().level);
+                        const level = snapshot.docs[0].data().level;
+                        setUserLevel(level);
+                        localStorage.setItem(`novaLevel_${user.uid}`, level);
+                        await setDoc(doc(db, "users", user.uid), { novaLevel: level }, { merge: true });
                     } else {
                         setUserLevel('beginner'); // default
                     }
@@ -35,15 +55,15 @@ export default function NovaSetupModal({ isOpen, onClose, onStart }) {
             };
             fetchUserLevel();
         }
-    }, [isOpen, user]);
+    }, [isOpen, user, userProfile?.novaLevel]);
 
     if (!isOpen) return null;
 
-    const isInterviewLocked = !userLevel || userLevel === 'beginner';
+    const isInterviewLocked = false; // Restriction removed as per user request
 
     const handleStart = () => {
         if (mode === 'interview' && !stack.trim()) return;
-        onStart({ mode, stack: stack.trim() });
+        onStart({ mode, stack: stack.trim(), topic: topic.trim() });
     };
 
     return (
@@ -107,19 +127,34 @@ export default function NovaSetupModal({ isOpen, onClose, onStart }) {
                     </div>
 
                     {mode === 'interview' && (
-                        <div className="space-y-2 animate-fadeIn">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                                <Code2 className="w-4 h-4 text-emerald-500" />
-                                Tech Stack
-                            </label>
-                            <input
-                                type="text"
-                                value={stack}
-                                onChange={(e) => setStack(e.target.value)}
-                                placeholder="e.g. MERN, Data Science, Flutter"
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-white placeholder-slate-400"
-                                autoFocus
-                            />
+                        <div className="space-y-4 animate-fadeIn">
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                                    <Code2 className="w-4 h-4 text-emerald-500" />
+                                    Tech Stack
+                                </label>
+                                <input
+                                    type="text"
+                                    value={stack}
+                                    onChange={(e) => setStack(e.target.value)}
+                                    placeholder="e.g. MERN, Data Science, Flutter"
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-white placeholder-slate-400"
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-emerald-500" />
+                                    Specific Topic (Optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={topic}
+                                    onChange={(e) => setTopic(e.target.value)}
+                                    placeholder="e.g. React Hooks, Node.js Event Loop"
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-white placeholder-slate-400"
+                                />
+                            </div>
                         </div>
                     )}
                 </div>

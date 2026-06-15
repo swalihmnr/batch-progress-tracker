@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, BookOpen, Loader2, Award } from 'lucide-react';
 import { db } from '../../firebase/firebaseConfig';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { TextExamSession } from '../../utils/aiCallService';
 import toast from 'react-hot-toast';
 
@@ -113,6 +113,10 @@ export default function EnglishTextExam({ isOpen, onClose, userId }) {
                     type: 'text_exam',
                     createdAt: serverTimestamp()
                 });
+
+                const userRef = doc(db, "users", userId);
+                await setDoc(userRef, { novaLevel: finalSummary.level }, { merge: true });
+                localStorage.setItem(`novaLevel_${userId}`, finalSummary.level);
             }
         } catch (err) {
             console.error("Failed to generate summary:", err);
