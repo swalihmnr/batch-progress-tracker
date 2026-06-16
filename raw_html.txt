@@ -1,0 +1,62 @@
+<div class="css_lab">
+	<input type="radio" name="hair" id="style1" checked="checked" />
+	<input type="radio" name="hair" id="style2" />
+	<input type="radio" name="hair" id="style3" />
+	<input type="radio" name="hair" id="style4" />
+	<input type="radio" name="hair" id="style5" />
+
+	<ul>
+		<li><label for="style1">1</label></li>
+		<li><label for="style2">2</label></li>
+		<li><label for="style3">3</label></li>
+		<li><label for="style4">4</label></li>
+		<li><label for="style5">5</label></li>
+	</ul>
+	<div class="head">
+		<div class="neck">
+			<p></p><p></p>
+		</div>
+		<div class="ear">
+			<p></p><p></p>
+		</div>
+		<div class="shape">
+			<p></p>
+		</div>
+		<div class="eyebrow">
+			<p></p><p></p><p></p><p></p>
+		</div>
+		<div class="eyes">
+			<p></p><p></p><p></p><p></p><p>
+			</p><p></p><p></p><p></p><p></p>
+		</div>
+		<div class="nose">
+			<p></p><p></p><p></p><p></p>
+			<p></p><p></p><p></p><p></p>
+		</div>
+		<div class="mouth">
+			<p></p><p></p><p></p>
+			<p></p><p></p><p></p>
+		</div>
+		<div class="hair">
+			<p></p><p></p><p></p><p></p>
+		</div>
+		<div class="hair1">
+			<p></p><p></p><p></p><p></p><p></p>
+		</div>
+		<div class="hair2">
+			<p></p><p></p><p></p><p></p>
+			<p></p><p></p><p></p><p></p>
+		</div>
+		<div class="hair3">
+			<p></p><p></p><p></p><p></p>
+		</div>
+		<div class="hair4">
+			<p></p><p></p><p></p>
+			<p></p><p></p><p></p>
+		</div>
+		<div class="hair5">
+			<p></p><p></p><p></p><p>
+			</p><p></p><p></p><p></p>
+		</div>
+	</div>
+</div>
